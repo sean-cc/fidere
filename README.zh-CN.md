@@ -2,7 +2,8 @@
 
 [![CI](https://github.com/sean-cc/fidere/actions/workflows/ci.yml/badge.svg)](https://github.com/sean-cc/fidere/actions/workflows/ci.yml)
 
-[English](README.md) | 简体中文
+[English](README.md) | **简体中文** | [繁體中文](README.zh-TW.md) | [繁體中文（香港）](README.zh-HK.md) | [日本語](README.ja.md) | [한국어](README.ko.md) | [Русский](README.ru.md)
+
 
 Fidere 是一个跑在浏览器里的小型 agent 工作台。它基于 [pi coding agent](https://github.com/earendil-works/pi/tree/main/packages/coding-agent) 的 SDK 构建，所以 agent 能读写文件、执行命令，并实时显示思考和工具调用——同时不会把框架、打包器或第二个服务拖到你的机器上。
 
@@ -10,6 +11,7 @@ Fidere 是一个跑在浏览器里的小型 agent 工作台。它基于 [pi codi
 
 - **小，而且没有多余的外部包** —— 只依赖 pi SDK 一个包；前端零框架、无打包器、不引 CDN。约 8,300 行原生 JS/CSS，`node scripts/start.mjs` 就是全部运行链路。
 - **看到过程，不只看结论** —— 思考和工具调用实时出现在对话里，回复结束后自动折叠，单条可再展开。
+- **界面会说你的语言** —— 内置英文、简体中文、繁体中文（台湾／香港）、日文、韩文、俄文七种界面语言，点侧边栏的地球按钮切换。
 - **看得到花多少钱** —— 每条回复都带 token 用量，并按实际调用的端点取供应商官方价，不是一张静态价目表。
 - **不会背着你用贵模型** —— 新会话从你看得见、改得动的模型开始；重开旧会话时模型被悄悄换掉，会在对话上方明确提示。
 
@@ -26,6 +28,7 @@ Fidere 是一个跑在浏览器里的小型 agent 工作台。它基于 [pi codi
 - 查看每条回复的时间、token 用量和费用（供应商官方价，含人民币估算）
 - 编辑之前发过的消息并在新分支上重新提交；复制回复、重试被拒绝的请求；流中断后自动恢复
 - macOS 长任务运行期间可选择阻止空闲休眠
+- 切换界面语言：英文 / 简体中文 / 繁体中文（台湾）/ 繁体中文（香港）/ 日文 / 韩文 / 俄文（侧边栏地球按钮）
 
 ## 快捷键
 

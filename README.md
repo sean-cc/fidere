@@ -2,7 +2,8 @@
 
 [![CI](https://github.com/sean-cc/fidere/actions/workflows/ci.yml/badge.svg)](https://github.com/sean-cc/fidere/actions/workflows/ci.yml)
 
-English | [简体中文](README.zh-CN.md)
+**English** | [简体中文](README.zh-CN.md) | [繁體中文](README.zh-TW.md) | [繁體中文（香港）](README.zh-HK.md) | [日本語](README.ja.md) | [한국어](README.ko.md) | [Русский](README.ru.md)
+
 
 Fidere is a small agent workspace that runs in your browser. It is built on the [pi coding agent](https://github.com/earendil-works/pi/tree/main/packages/coding-agent) SDK, so the agent can read and write files, run commands, and stream its thinking and tool calls live — without dragging a framework, a bundler or a second service onto your machine.
 
@@ -10,6 +11,7 @@ Fidere is a small agent workspace that runs in your browser. It is built on the 
 
 - **Small on purpose** — one dependency (the pi SDK), no frontend framework, no bundler, no CDN. ~8,300 lines of plain JS/CSS, and `node scripts/start.mjs` is the entire run path.
 - **Streams the work, not just the answer** — thinking and tool calls appear inline, fold when a reply finishes, and can be reopened per reply.
+- **Speaks your language** — the interface ships in English, 简体中文, 繁體中文 (台灣 / 香港), 日本語, 한국어 and Русский; pick one from the globe button in the sidebar.
 - **Shows what it costs** — every reply carries token usage and the vendor's own price for the endpoint it actually used, not a static rate card.
 - **Never picks an expensive model behind your back** — new sessions start on a model you can see and change, and a silent model swap on a reopened session is announced above the transcript.
 
@@ -26,6 +28,7 @@ Fidere is a small agent workspace that runs in your browser. It is built on the 
 - See each reply's timestamp, token usage and cost (vendor prices, with an estimated CNY conversion)
 - Edit an earlier message and resend it on a new branch, copy replies, retry rejected prompts, and recover after a dropped stream
 - Keep a Mac awake during long tasks (optional)
+- Switch the interface language (English, 简体中文, 繁體中文 (台灣), 繁體中文 (香港), 日本語, 한국어, Русский) from the globe button in the sidebar
 
 ## Keyboard shortcuts
 

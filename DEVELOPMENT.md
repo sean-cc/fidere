@@ -24,11 +24,50 @@ npm install --ignore-scripts
 | `npm run dev` | Same check, then start with `node --watch` |
 | `npm run setup` | Interactive provider/API-key setup |
 | `npm run start:awake` | macOS: keep the whole server awake |
-| `npm run smoke` | Headless Chrome UI smoke test (47 checks) |
+| `npm run smoke` | Headless Chrome UI smoke test (55 checks) |
 | `npm run test:prices` | Unit tests for the official price catalog and re-pricing |
 | `npm run test:markdown` | Unit tests for the hand-rolled table renderer |
 | `npm run test:defaults` | Unit tests for the default-model policy |
 | `npm run test:sdk` | Unit tests for the startup SDK version comparison |
+
+## Localization
+
+The UI ships in English, 简体中文, 繁體中文 (台灣), 繁體中文 (香港), 日本語,
+한국어 and Русский. The two Traditional Chinese dictionaries differ only in
+regional IT vocabulary (導覽/導航, 內建/內置, 上傳/上載, 迴紋針/萬字夾, 則/個 …).
+
+- `public/i18n.js` holds every human-facing string. `t(key, params)` interpolates
+  `{name}` placeholders; a value may be a plural object keyed by
+  `Intl.PluralRules` categories (`one` / `few` / `many` / `other`), selected with
+  `params.count`.
+- Static copy in `public/index.html` is tagged with `data-i18n`,
+  `data-i18n-html`, `data-i18n-title`, `data-i18n-placeholder` or
+  `data-i18n-aria-label` and filled in by `applyStaticI18n()` before `app.js` runs.
+- Strings that the **agent** reads (attachment markers, tool output, file paths)
+  are intentionally left in English.
+- The locale is picked from `localStorage.fidere-locale`, then `navigator.language`
+  (`zh-HK` → Hong Kong, `zh-TW` / `zh-MO` / any other `Hant` → Taiwan, other `zh` →
+  Simplified).
+  Changing it through the sidebar globe button reloads the page so every
+  dynamically rendered string is rebuilt.
+- Adding a language: append an entry to `LOCALES` and add a dictionary object to
+  `DICTS`. `smoke.mjs` asserts the seven known locales and that the menu renders.
+
+The README is translated into the same seven languages
+(`README.md`, `README.zh-CN.md`, `README.zh-TW.md`, `README.zh-HK.md`,
+`README.ja.md`, `README.ko.md`, `README.ru.md`), each with a language nav line at
+the top. **`DEVELOPMENT.md` stays English on purpose** — it is written for
+contributors and tracks the code closely, so six more copies would drift out of
+date.
+
+When you change user-facing behaviour in the README, update all seven files. The
+two Traditional Chinese versions differ only in regional vocabulary (台灣 導覽 /
+上傳 / 內建 vs 香港 導航 / 上載 / 內置). Run the structural check to confirm they
+still line up:
+
+```bash
+node _workspace/tools/check-readmes.mjs
+```
 
 ## Project Layout
 
@@ -53,8 +92,10 @@ fidere/
 │   ├── markdown.js    # Markdown renderer
 │   ├── sse.js         # SSE event parser
 │   ├── util.js        # Formatting helpers
+│   ├── i18n.js        # Translation tables, t(), locale picker plumbing
 │   └── style.css      # Theme and layout
 ├── docs/              # README screenshots
+├── README.md          # User docs; en, zh-CN, zh-TW, zh-HK, ja, ko, ru
 ├── LICENSE
 └── package.json
 ```
