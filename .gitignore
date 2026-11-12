@@ -1,0 +1,27 @@
+# 依赖
+node_modules/
+
+# 本地运行时数据：上传的附件、会话缓存等
+.fidere/
+
+# 价格目录缓存（由 prices.js 拉取生成，可重建）
+output/
+
+# 临时目录
+tmp/
+
+# 工作区：调研产物 / 报告 / 可复用工具 / 等距图，不入库
+_workspace/
+
+# 日志与本地环境变量
+*.log
+.env
+.env.*
+!.env.example
+
+# 编辑器 / 系统
+.DS_Store
+*.swp
+
+# 本地笔记（不入库）
+MEMORY.md

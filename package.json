@@ -1,0 +1,32 @@
+{
+  "name": "fidere",
+  "version": "1.0.0",
+  "description": "A small agent workspace in the browser, built on the pi SDK.",
+  "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sean-cc/fidere.git"
+  },
+  "homepage": "https://github.com/sean-cc/fidere#readme",
+  "bugs": {
+    "url": "https://github.com/sean-cc/fidere/issues"
+  },
+  "engines": {
+    "node": ">=22.19.0"
+  },
+  "scripts": {
+    "start": "node scripts/start.mjs",
+    "dev": "node scripts/start.mjs --watch",
+    "smoke": "node scripts/smoke.mjs",
+    "test:prices": "node --test scripts/prices-test.mjs",
+    "test:markdown": "node --test scripts/markdown-test.mjs",
+    "test:defaults": "node --test scripts/default-models-test.mjs",
+    "start:awake": "caffeinate -ims node scripts/start.mjs",
+    "setup": "node scripts/setup.mjs",
+    "test:sdk": "node --test scripts/start-test.mjs"
+  },
+  "dependencies": {
+    "@earendil-works/pi-coding-agent": "^1.5.2"
+  }
+}
