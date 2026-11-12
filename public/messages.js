@@ -1,5 +1,6 @@
 import { escapeHtml, renderMarkdown } from './markdown.js';
 import { formatBytes, attachmentIsImage, escapeAttr } from './util.js';
+import { t } from './i18n.js';
 
 export function parseAttachmentMessage(content) {
   let text = String(content || '');
@@ -53,17 +54,17 @@ export function renderMessageAttachments(attachments, images) {
 
 export function renderToolCall(tc, index) {
   let statusClass = 'running';
-  let statusText = 'Running...';
+  let statusText = t('tools.running');
   if (tc.result !== null) {
     statusClass = tc.isError ? 'error' : 'success';
-    statusText = tc.isError ? 'Error' : 'Done';
+    statusText = tc.isError ? t('tools.error') : t('tools.done');
   }
-  const title = tc.name || 'Tool';
+  const title = tc.name || t('tools.tool');
   let output = tc.result !== null ? String(tc.result) : String(tc.pendingOutput || '');
   if (tc.result !== null) {
     output = output.slice(0, 8000);
   } else if (output.length > 13000) {
-    output = `… (${output.length - 12000} characters hidden) …\n` + output.slice(-12000);
+    output = t('tools.hidden', { count: output.length - 12000 }) + '\n' + output.slice(-12000);
   }
   const outputType = tc.result !== null ? 'result' : 'output';
   return `
@@ -86,7 +87,7 @@ export function renderThinking(thinking) {
   return `
     <div class="thinking-block">
       <div class="thinking-header" onclick="toggleToolBlock(this.parentElement.querySelector('.thinking-body'))">
-        <span>💭 Thinking</span>
+        <span>💭 ${escapeHtml(t('msg.details'))}</span>
         <span class="tool-chevron">▶</span>
       </div>
       <div class="thinking-body">${escapeHtml(thinking)}</div>
@@ -121,7 +122,7 @@ export function createMessageElement(msg) {
   div.dataset.id = msg.id;
 
   const isAssistant = msg.role !== 'user';
-  const avatar = isAssistant ? 'P' : 'U';
+  const avatar = isAssistant ? 'F' : 'U';
 
   // Reasoning and tool calls are collapsed by default once a reply is done.
   // A live reply is expanded again right after it is appended.
@@ -130,15 +131,15 @@ export function createMessageElement(msg) {
   div.innerHTML = `
     <div class="msg-aside">
       <div class="msg-avatar">${avatar}</div>
-      <button class="msg-copy-btn" type="button" title="Copy message text" aria-label="Copy message text">⧉</button>
+      <button class="msg-copy-btn" type="button" title="${escapeAttr(t('msg.copy'))}" aria-label="${escapeAttr(t('msg.copy'))}">⧉</button>
     </div>
     <div class="msg-content">
-      ${isAssistant ? '<button class="btn-msg-details hidden" type="button" aria-expanded="true"><span class="btn-msg-details-icon" aria-hidden="true">▸</span><span class="btn-msg-details-label">Thinking &amp; tools</span></button>' : ''}
+      ${isAssistant ? `<button class="btn-msg-details hidden" type="button" aria-expanded="true"><span class="btn-msg-details-icon" aria-hidden="true">▸</span><span class="btn-msg-details-label">${t('msg.details')}</span></button>` : ''}
       <div class="msg-steps"></div>
       <div class="msg-meta">
         <time class="msg-time"></time>
         <span class="msg-meta-right">
-          ${msg.role === 'user' ? '<button class="msg-edit-btn" type="button" title="Edit and resend this message">Edit</button>' : ''}
+          ${msg.role === 'user' ? `<button class="msg-edit-btn" type="button" title="${escapeAttr(t('msg.editTitle'))}">${escapeHtml(t('msg.edit'))}</button>` : ''}
           <span class="msg-usage"></span>
         </span>
       </div>

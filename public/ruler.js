@@ -1,5 +1,6 @@
 // Conversation timeline: one tick per user prompt, with a fixed minimum gap
 // and a scrolling window when prompts overflow. Extracted from app.js.
+import { t } from './i18n.js';
 export function createRuler(options) {
   const {
     chatMessages, rulerEl, trackEl, tipEl, tipRoleEl, tipTextEl,
@@ -216,9 +217,9 @@ function showRulerTip(tick) {
   setHoveredTick(tick);
 
   const isUser = tick.msgEl.classList.contains('msg-user');
-  tipRoleEl.textContent = isUser ? 'You' : 'Pi';
+  tipRoleEl.textContent = isUser ? t('msg.you') : t('msg.agent');
   tipRoleEl.classList.toggle('assistant', !isUser);
-  tipTextEl.textContent = rulerMessagePreview(tick.msgEl) || '(empty message)';
+  tipTextEl.textContent = rulerMessagePreview(tick.msgEl) || t('msg.empty');
   tipEl.classList.add('visible');
 
   const tipHeight = tipEl.offsetHeight;

@@ -196,6 +196,11 @@ try {
   await send('Emulation.setDeviceMetricsOverride', {
     width: 1440, height: 900, deviceScaleFactor: 1, mobile: false,
   });
+  // The assertions below are written against the English copy. Pin the locale
+  // so a machine whose browser prefers another language still passes.
+  await send('Page.addScriptToEvaluateOnNewDocument', {
+    source: `try { localStorage.setItem('fidere-locale', 'en'); } catch {}`,
+  });
   await send('Page.navigate', { url: `http://127.0.0.1:${appPort}/` });
 
   // Wait for the app to finish its initial session switch.
@@ -939,6 +944,53 @@ async function browserTests() {
     'empty session restores the welcome screen',
     Boolean(document.querySelector('#chatMessages .welcome')),
     `session=${api.state.sessionId} messages=${api.state.messages.length} children=${document.querySelector('#chatMessages')?.children.length} html=${(document.querySelector('#chatMessages')?.innerHTML || '').slice(0, 80)}`,
+  );
+
+  // ── Localization ─────────────────────────────────────────────────────────
+  const i18n = await import('/i18n.js');
+  const localeIds = (i18n.LOCALES || []).map((locale) => locale.id).join(',');
+  check(
+    'locale catalogue covers seven languages',
+    localeIds === 'en,zh-CN,zh-TW,zh-HK,ja,ko,ru',
+    localeIds,
+  );
+
+  const langButton = document.getElementById('btnLangToggle');
+  check(
+    'language toggle shows the active locale',
+    Boolean(langButton) && document.getElementById('langShort')?.textContent === 'EN',
+    `${langButton?.className} short=${document.getElementById('langShort')?.textContent}`,
+  );
+
+  langButton?.click();
+  await wait(30);
+  const langMenu = document.getElementById('langMenu');
+  const langItems = langMenu?.querySelectorAll('[data-locale]') || [];
+  check(
+    'language menu lists every locale',
+    langItems.length === 7 && !langMenu.classList.contains('hidden') &&
+      langButton.getAttribute('aria-expanded') === 'true',
+    `items=${langItems.length} hidden=${langMenu?.classList.contains('hidden')}`,
+  );
+  check(
+    'active locale is marked in the menu',
+    langMenu?.querySelector('.lang-item.active')?.dataset.locale === 'en',
+    langMenu?.querySelector('.lang-item.active')?.dataset.locale,
+  );
+
+  document.body.click();
+  await wait(30);
+  check(
+    'language menu closes on an outside click',
+    langMenu?.classList.contains('hidden') && langButton.getAttribute('aria-expanded') === 'false',
+    `hidden=${langMenu?.classList.contains('hidden')}`,
+  );
+
+  check(
+    'static HTML copy is translated',
+    document.querySelector('.chat-disclaimer')?.textContent.startsWith('Built on pi agent') &&
+      document.getElementById('promptInput')?.placeholder.startsWith('Message Fidere...'),
+    document.querySelector('.chat-disclaimer')?.textContent?.slice(0, 32),
   );
 
   return results;

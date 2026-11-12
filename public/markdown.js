@@ -1,4 +1,5 @@
 // ── Simple Markdown Renderer ──────────────────────────────────────────────
+import { t } from './i18n.js';
 
 export function escapeHtml(text) {
   const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
@@ -104,7 +105,7 @@ export function renderMarkdown(text) {
   processed = processed.replace(/\x00CODEBLOCK(\d+)\x00/g, (_, idx) => {
     const block = codeBlocks[parseInt(idx)];
     const label = block.lang ? escapeHtml(block.lang) : 'text';
-    const header = `<div class="code-header"><span>${label}</span><button class="copy-btn" data-code="${encodeURIComponent(block.code)}">Copy</button></div>`;
+    const header = `<div class="code-header"><span>${label}</span><button class="copy-btn" data-code="${encodeURIComponent(block.code)}">${escapeHtml(t('copy.action'))}</button></div>`;
     return `${header}<pre><code>${escapeHtml(block.code)}</code></pre>`;
   });
 

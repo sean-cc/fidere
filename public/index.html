@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <!-- Static copy carries data-i18n keys; public/i18n.js fills them at load. -->
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Fidere</title>
@@ -12,11 +13,11 @@
   <div class="login-overlay" id="loginOverlay">
     <form class="login-card" id="loginForm" autocomplete="off">
       <h1 class="login-title">Fidere</h1>
-      <p class="login-hint">Paste the access token printed at startup, or read it from
+      <p class="login-hint" data-i18n-html="login.hint">Paste the access token printed at startup, or read it from
         <code>~/.pi/agent/fidere-token</code>.</p>
       <input class="login-input" id="loginToken" type="password" spellcheck="false"
-             autocomplete="off" placeholder="Access token">
-      <button class="login-submit" type="submit">Continue</button>
+             autocomplete="off" placeholder="Access token" data-i18n-placeholder="login.token">
+      <button class="login-submit" type="submit" data-i18n="login.continue">Continue</button>
       <div class="login-error" id="loginError"></div>
     </form>
   </div>
@@ -24,29 +25,39 @@
   <!-- Sidebar -->
   <aside class="sidebar" id="sidebar">
     <div class="sidebar-header">
-      <button class="btn-new-chat" id="btnNewChat" title="New chat">
+      <button class="btn-new-chat" id="btnNewChat" title="New chat" data-i18n-title="sidebar.newChat">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <line x1="12" y1="5" x2="12" y2="19"></line>
           <line x1="5" y1="12" x2="19" y2="12"></line>
         </svg>
-        <span>New chat</span>
+        <span data-i18n="sidebar.newChat">New chat</span>
       </button>
-      <button class="sidebar-close" id="btnSidebarClose" type="button" aria-label="Close menu">✕</button>
+      <button class="sidebar-close" id="btnSidebarClose" type="button" aria-label="Close menu" data-i18n-aria-label="sidebar.closeMenu">✕</button>
     </div>
     <div class="sidebar-sessions" id="sessionList">
       <!-- Sessions loaded dynamically -->
     </div>
     <div class="sidebar-footer">
-      <button class="btn-model-selector" id="btnModelSelector" title="Select model">
-        <div class="sidebar-model" id="sidebarModel">No model configured</div>
+      <button class="btn-model-selector" id="btnModelSelector" title="Select model" data-i18n-title="sidebar.selectModel">
+        <div class="sidebar-model" id="sidebarModel" data-i18n="sidebar.noModel">No model configured</div>
         <span class="model-chevron">▾</span>
       </button>
       <div class="sidebar-usage hidden" id="sidebarUsage"></div>
       <div class="sidebar-info">Fidere</div>
-      <button class="btn-theme-toggle" id="btnThemeToggle" title="Toggle theme">
+      <button class="btn-theme-toggle" id="btnThemeToggle" title="Toggle theme" data-i18n-title="sidebar.toggleTheme">
         <svg class="icon-sun" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
         <svg class="icon-moon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
       </button>
+      <button class="btn-lang-toggle" id="btnLangToggle" type="button"
+              title="Language" data-i18n-title="sidebar.language"
+              aria-haspopup="true" aria-expanded="false" aria-controls="langMenu">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/>
+          <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+        </svg>
+        <span id="langShort">EN</span>
+      </button>
+      <div class="lang-menu hidden" id="langMenu" role="menu" aria-labelledby="btnLangToggle"></div>
     </div>
   </aside>
   <div class="sidebar-backdrop hidden" id="sidebarBackdrop"></div>
@@ -55,11 +66,11 @@
   <div class="modal-overlay hidden" id="modelModal">
     <div class="modal">
       <div class="modal-header">
-        <h3>Select Model</h3>
+        <h3 data-i18n="models.title">Select Model</h3>
         <button class="modal-close" id="btnModalClose">✕</button>
       </div>
       <div class="modal-body" id="modelList">
-        <div class="modal-loading">Loading models...</div>
+        <div class="modal-loading" data-i18n="models.loading">Loading models...</div>
       </div>
     </div>
   </div>
@@ -68,13 +79,13 @@
   <div class="modal-overlay hidden" id="sessionModal">
     <div class="modal">
       <div class="modal-header">
-        <h3>Resume Session</h3>
+        <h3 data-i18n="sessions.title">Resume Session</h3>
         <button class="modal-close" id="btnSessionModalClose">✕</button>
       </div>
       <div class="modal-body">
-        <input id="sessionSearch" class="modal-search" type="search" placeholder="Search sessions..." autocomplete="off">
+        <input id="sessionSearch" class="modal-search" type="search" placeholder="Search sessions..." data-i18n-placeholder="sessions.search" autocomplete="off">
         <div id="sessionPickerList">
-          <div class="modal-loading">Loading sessions...</div>
+          <div class="modal-loading" data-i18n="sessions.loading">Loading sessions...</div>
         </div>
       </div>
     </div>
@@ -98,7 +109,7 @@
     <div class="session-notice hidden" id="sessionNotice" role="status">
       <span class="session-notice-icon" aria-hidden="true">⚠</span>
       <span class="session-notice-text" id="sessionNoticeText"></span>
-      <button class="session-notice-close" id="btnDismissNotice" type="button" title="Dismiss" aria-label="Dismiss">✕</button>
+      <button class="session-notice-close" id="btnDismissNotice" type="button" title="Dismiss" data-i18n-title="chat.dismiss" aria-label="Dismiss" data-i18n-aria-label="chat.dismiss">✕</button>
     </div>
 
     <!-- Messages -->
@@ -112,20 +123,20 @@
             </svg>
           </div>
           <h2>Fidere</h2>
-          <p>A small agent workspace, built on pi agent</p>
+          <p data-i18n="chat.welcome">A small agent workspace, built on pi agent</p>
         </div>
       </div>
 
       <!-- Conversation timeline: jump between earlier prompts -->
       <div class="chat-ruler" id="chatRuler" hidden>
-        <div class="ruler-track" id="rulerTrack" role="navigation" aria-label="Conversation timeline" title="Conversation timeline (↑ / ↓ to navigate)" tabindex="0"></div>
+        <div class="ruler-track" id="rulerTrack" role="navigation" aria-label="Conversation timeline" data-i18n-aria-label="chat.timeline" title="Conversation timeline (↑ / ↓ to navigate)" data-i18n-title="chat.timelineHint" tabindex="0"></div>
       </div>
       <div class="ruler-tip" id="rulerTip" role="tooltip">
         <div class="ruler-tip-role" id="rulerTipRole"></div>
         <div class="ruler-tip-text" id="rulerTipText"></div>
       </div>
 
-      <button class="btn-scroll-bottom hidden" id="btnScrollBottom" type="button" title="Jump to latest" aria-label="Jump to latest message">
+      <button class="btn-scroll-bottom hidden" id="btnScrollBottom" type="button" title="Jump to latest" data-i18n-title="chat.jumpLatest" aria-label="Jump to latest message" data-i18n-aria-label="chat.jumpLatestMessage">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <line x1="12" y1="4" x2="12" y2="20"></line>
           <polyline points="18 14 12 20 6 14"></polyline>
@@ -136,14 +147,14 @@
     <!-- Input area -->
     <div class="chat-input-area">
       <div class="edit-banner hidden" id="editBanner">
-        <span>Editing an earlier message. Sending starts a new branch.</span>
-        <button type="button" id="btnCancelEdit">Cancel</button>
+        <span data-i18n="chat.editBanner">Editing an earlier message. Sending starts a new branch.</span>
+        <button type="button" id="btnCancelEdit" data-i18n="chat.editCancel">Cancel</button>
       </div>
       <div class="chat-input-container" id="chatInputContainer">
         <div class="attachment-tray hidden" id="attachmentTray" aria-live="polite"></div>
-        <div class="slash-menu hidden" id="slashMenu" role="listbox" aria-label="Slash commands"></div>
+        <div class="slash-menu hidden" id="slashMenu" role="listbox" aria-label="Slash commands" data-i18n-aria-label="chat.slash"></div>
         <div class="chat-input-row">
-          <button class="btn-attach" id="btnAttach" title="Attach images or files" aria-label="Attach images or files">
+          <button class="btn-attach" id="btnAttach" title="Attach images or files" data-i18n-title="chat.attach" aria-label="Attach images or files" data-i18n-aria-label="chat.attach">
             <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
             </svg>
@@ -151,31 +162,37 @@
           <textarea
             id="promptInput"
             class="chat-input"
-            placeholder="Message pi...  Type / for commands"
+            placeholder="Message Fidere...  Type / for commands"
+            data-i18n-placeholder="chat.placeholder"
             title="Type / to see commands. Attach with the paperclip, drag, or paste."
+            data-i18n-title="chat.inputTitle"
             rows="1"
             autofocus
           ></textarea>
           <div class="chat-input-actions">
-            <button class="btn-send" id="btnSend" title="Send message" disabled>
+            <button class="btn-send" id="btnSend" title="Send message" data-i18n-title="chat.send" disabled>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
               </svg>
             </button>
-            <button class="btn-abort hidden" id="btnAbort" title="Stop generating">
+            <button class="btn-abort hidden" id="btnAbort" title="Stop generating" data-i18n-title="chat.stop">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
                 <rect x="4" y="4" width="16" height="16" rx="2"/>
               </svg>
             </button>
           </div>
         </div>
-        <div class="drop-overlay" id="dropOverlay"><span>Drop files to attach</span></div>
+        <div class="drop-overlay" id="dropOverlay"><span data-i18n="chat.dropFiles">Drop files to attach</span></div>
       </div>
       <input type="file" id="fileInput" multiple hidden>
-      <p class="chat-disclaimer">Built on pi agent · Images, text and files can be attached · Check results carefully</p>
+      <p class="chat-disclaimer" data-i18n="chat.disclaimer">Built on pi agent · Images, text and files can be attached · Check results carefully</p>
     </div>
   </main>
 
+  <script type="module">
+    import { applyStaticI18n } from './i18n.js';
+    applyStaticI18n();
+  </script>
   <script type="module" src="./app.js"></script>
 </body>
 </html>

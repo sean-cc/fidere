@@ -3,6 +3,7 @@ import { createSSEParser } from './sse.js';
 import { createRuler } from './ruler.js';
 import { formatBytes, attachmentIsImage, attachmentLabel, escapeAttr } from './util.js';
 import { parseAttachmentMessage, renderToolCall, renderThinking, createMessageElement, createMessageStep } from './messages.js';
+import { t, getLocale, getLocaleInfo, LOCALES, setLocale } from './i18n.js';
 
 // ── Theme ───────────────────────────────────────────────────────────────────
 const THEME_KEY = 'fidere-theme';
@@ -173,14 +174,14 @@ function bindLogin() {
         body: JSON.stringify({ token }),
       });
     } catch {
-      error.textContent = 'Could not reach the server.';
+      error.textContent = t('login.err.network');
       return;
     }
 
     if (!res.ok) {
       error.textContent = res.status === 429
-        ? 'Too many attempts. Wait a minute and try again.'
-        : 'Token rejected.';
+        ? t('login.err.rate')
+        : t('login.err.rejected');
       return;
     }
 
@@ -228,7 +229,7 @@ async function uploadAttachment(file) {
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: res.statusText }));
-    throw new Error(err.error || 'Upload failed');
+    throw new Error(err.error || t('err.upload'));
   }
   return res.json();
 }
@@ -239,17 +240,17 @@ async function addFiles(fileList) {
 
   const room = MAX_ATTACHMENTS - state.pendingAttachments.length;
   if (room <= 0) {
-    showError(`You can attach at most ${MAX_ATTACHMENTS} files per message.`);
+    showError(t('err.maxFiles', { count: MAX_ATTACHMENTS }));
     return;
   }
   const accepted = files.slice(0, room);
   if (files.length > room) {
-    showError(`Only ${room} more file${room === 1 ? '' : 's'} can be attached.`);
+    showError(t('err.roomFiles', { count: room }));
   }
 
   for (const file of accepted) {
     if (file.size > MAX_ATTACHMENT_BYTES) {
-      showError(`${file.name || 'This file'} is larger than 25 MB.`);
+      showError(t('err.tooLarge', { name: file.name || t('msg.empty') }));
       continue;
     }
     const local = {
@@ -279,7 +280,7 @@ async function addFiles(fileList) {
     }).catch((err) => {
       const index = state.pendingAttachments.indexOf(local);
       if (index >= 0) state.pendingAttachments.splice(index, 1);
-      showError(`Could not attach ${local.name}: ${err.message}`);
+      showError(t('err.attachFailed', { name: local.name, message: err.message }));
     }).finally(() => {
       state.uploading = Math.max(0, state.uploading - 1);
       renderAttachmentTray();
@@ -310,14 +311,14 @@ function renderAttachmentTray() {
       ${preview}
       <span class="attachment-copy">
         <span class="attachment-name" title="${escapeAttr(a.path || a.name)}">${name}</span>
-        <span class="attachment-meta">${a.uploading ? 'Uploading…' : meta}</span>
+        <span class="attachment-meta">${a.uploading ? escapeHtml(t('attach.uploading')) : meta}</span>
       </span>
-      ${a.uploading ? '<span class="attachment-spinner" aria-label="Uploading"></span>' : `
-        <button class="attachment-btn ref" data-act="ref" data-id="${escapeAttr(a.id)}" title="Reference this file in the message" aria-label="Reference ${name}">@</button>
-        <button class="attachment-btn remove" data-act="remove" data-id="${escapeAttr(a.id)}" title="Remove" aria-label="Remove ${name}">×</button>`}
+      ${a.uploading ? `<span class="attachment-spinner" aria-label="${escapeAttr(t('attach.uploading'))}"></span>` : `
+        <button class="attachment-btn ref" data-act="ref" data-id="${escapeAttr(a.id)}" title="${escapeAttr(t('attach.refTitle'))}" aria-label="${escapeAttr(t('attach.ref', { name }))}">@</button>
+        <button class="attachment-btn remove" data-act="remove" data-id="${escapeAttr(a.id)}" title="${escapeAttr(t('attach.remove'))}" aria-label="${escapeAttr(t('attach.remove'))}">×</button>`}
     </div>`;
   }).join('') + (imageWarning
-    ? '<div class="attachment-warning" title="Choose a vision model to read images">Images may not be read by this model</div>'
+    ? `<div class="attachment-warning" title="${escapeAttr(t('attach.chooseVision'))}">${escapeHtml(t('attach.imageWarning'))}</div>`
     : '');
 }
 
@@ -533,17 +534,28 @@ function formatUsageTitle(usage) {
         ? `${symbol}${amount.toFixed(6)} ${currency}`
         : `${currency} ${amount.toFixed(6)}`;
       if (currency === 'USD') {
-        return `${base} (≈¥${(amount * USD_TO_CNY).toFixed(4)} at ${USD_TO_CNY})`;
+        return base + t('usage.usdApprox', {
+          cny: (amount * USD_TO_CNY).toFixed(4),
+          rate: USD_TO_CNY,
+        });
       }
       return base;
     })
     .join(' / ') || '—';
   const source = usage.priceSource && usage.priceSource !== 'local'
-    ? `price: ${usage.priceSource}${usage.pricePeriod ? ` (${usage.pricePeriod})` : ''}`
+    ? t('usage.priceFrom', { source: usage.priceSource + (usage.pricePeriod ? ` (${usage.pricePeriod})` : '') })
     : usage.priceSource === 'local'
-      ? 'price: local models.json / SDK'
-      : 'price: mixed sources';
-  return `input ${usage.input.toLocaleString()} · output ${usage.output.toLocaleString()} · cache read ${usage.cacheRead.toLocaleString()} · cache write ${usage.cacheWrite.toLocaleString()} · cost ${costText} · ${source}`;
+      ? t('usage.priceLocal')
+      : t('usage.priceMixed');
+  const locale = getLocale();
+  return t('usage.title', {
+    input: usage.input.toLocaleString(locale),
+    output: usage.output.toLocaleString(locale),
+    cacheRead: usage.cacheRead.toLocaleString(locale),
+    cacheWrite: usage.cacheWrite.toLocaleString(locale),
+    cost: costText,
+    source,
+  });
 }
 
 function updateMessageMeta(el) {
@@ -555,9 +567,9 @@ function updateMessageMeta(el) {
   if (timeEl) {
     const date = last ? new Date(last.timestamp) : null;
     const valid = date && !Number.isNaN(date.getTime());
-    timeEl.textContent = valid ? date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+    timeEl.textContent = valid ? date.toLocaleTimeString(getLocale(), { hour: '2-digit', minute: '2-digit' }) : '';
     timeEl.dateTime = valid ? date.toISOString() : '';
-    timeEl.title = valid ? date.toLocaleString() : '';
+    timeEl.title = valid ? date.toLocaleString(getLocale()) : '';
   }
 
   if (usageEl) {
@@ -579,7 +591,7 @@ function updateSidebarUsage() {
   }
   const cost = formatUsageCost(usage);
   sidebarUsage.textContent = `↑${formatTokenCount(usage.input)} ↓${formatTokenCount(usage.output)}${cost ? ` · ${cost}` : ''}`;
-  sidebarUsage.title = `Session totals — ${formatUsageTitle(usage)}`;
+  sidebarUsage.title = t('usage.sessionTotals', { details: formatUsageTitle(usage) });
   sidebarUsage.classList.remove('hidden');
 }
 
@@ -879,10 +891,10 @@ function copyButtonWithFeedback(btn) {
     if (!ok) return;
     clearTimeout(btn._copyFeedbackTimer);
     btn.classList.add('copied');
-    btn.textContent = '✓ Copy';
+    btn.textContent = t('copy.done');
     btn._copyFeedbackTimer = setTimeout(() => {
       btn.classList.remove('copied');
-      btn.textContent = 'Copy';
+      btn.textContent = t('copy.action');
     }, 1500);
   });
 }
@@ -944,10 +956,10 @@ function updateMessageDetailsButton(msgEl) {
   btn.classList.toggle('hidden', count === 0);
   const collapsed = msgEl.classList.contains('details-collapsed');
   btn.setAttribute('aria-expanded', String(!collapsed));
-  btn.title = collapsed ? 'Show thinking and tool calls' : 'Hide thinking and tool calls';
+  btn.title = collapsed ? t('details.showTitle') : t('details.hideTitle');
   const label = btn.querySelector('.btn-msg-details-label');
   if (label) {
-    label.textContent = `${collapsed ? 'Show' : 'Hide'} thinking & tools · ${count} step${count === 1 ? '' : 's'}`;
+    label.textContent = t(collapsed ? 'details.show' : 'details.hide', { count });
   }
 }
 
@@ -985,13 +997,13 @@ async function loadSessionList() {
     const sessions = await apiJSON('GET', 'api/sessions');
     renderSessionList(sessions);
   } catch {
-    sessionList.innerHTML = '<div class="session-item" style="opacity:0.5">No sessions yet</div>';
+    sessionList.innerHTML = `<div class="session-item" style="opacity:0.5">${escapeHtml(t('sessions.empty'))}</div>`;
   }
 }
 
 function renderSessionList(sessions) {
   if (!sessions || sessions.length === 0) {
-    sessionList.innerHTML = '<div class="session-item" style="opacity:0.5">No sessions yet</div>';
+    sessionList.innerHTML = `<div class="session-item" style="opacity:0.5">${escapeHtml(t('sessions.empty'))}</div>`;
     return;
   }
   sessionList.innerHTML = sessions.map(s => {
@@ -1001,7 +1013,7 @@ function renderSessionList(sessions) {
       <div class="session-item${active}" data-sid="${s.id}" onclick="switchSession('${s.id}')">
         <span class="session-icon">💬</span>
         <span class="session-label" title="${escapeHtml(s.firstMessage || s.id)}">${label}</span>
-        <button class="session-delete" onclick="deleteSession(event, '${s.id}')" title="Delete">×</button>
+        <button class="session-delete" onclick="deleteSession(event, '${s.id}')" title="${escapeAttr(t('sessions.delete'))}">×</button>
       </div>`;
   }).join('');
 }
@@ -1036,7 +1048,7 @@ window.switchSession = async function (sid) {
       if (lastMsg?.role === 'assistant' && lastGroup) {
         setMessageDetailsCollapsed(lastGroup, false);
       }
-      showNotice('This session is still generating. It will refresh when finished.');
+      showNotice(t('sessions.stillGenerating'));
       appendWorkingMessage();
       startSessionPoll(state.sessionId);
     } else {
@@ -1049,7 +1061,7 @@ window.switchSession = async function (sid) {
 
 window.deleteSession = async function (e, sid) {
   e.stopPropagation();
-  if (!confirm('Delete this session?')) return;
+  if (!confirm(t('sessions.confirmDelete'))) return;
   try {
     await api('DELETE', `api/sessions/${sid}`);
     if (sid === state.sessionId) {
@@ -1086,7 +1098,7 @@ async function createNewSession() {
     await loadModelInfo();
   } catch (err) {
     console.error('Failed to create session:', err);
-    showError('Failed to create session. Check your API key configuration.');
+    showError(t('err.createSession'));
   }
 }
 
@@ -1095,7 +1107,7 @@ async function createNewSession() {
 async function openSessionPicker() {
   state.sessionPickerSessions = [];
   sessionSearch.value = '';
-  sessionPickerList.innerHTML = '<div class="modal-loading">Loading sessions...</div>';
+  sessionPickerList.innerHTML = `<div class="modal-loading">${escapeHtml(t('sessions.loading'))}</div>`;
   sessionModal.classList.remove('hidden');
   sessionSearch.focus();
 
@@ -1104,7 +1116,7 @@ async function openSessionPicker() {
     state.sessionPickerSessions = Array.isArray(sessions) ? sessions : [];
     renderSessionPicker();
   } catch (err) {
-    sessionPickerList.innerHTML = `<div class="modal-error">Failed to load sessions: ${escapeHtml(err.message)}</div>`;
+    sessionPickerList.innerHTML = `<div class="modal-error">${escapeHtml(t('sessions.loadFailed', { message: err.message }))}</div>`;
   }
 }
 
@@ -1116,15 +1128,15 @@ function renderSessionPicker() {
   });
 
   if (!sessions.length) {
-    sessionPickerList.innerHTML = '<div class="modal-empty">No matching sessions</div>';
+    sessionPickerList.innerHTML = `<div class="modal-empty">${escapeHtml(t('sessions.noMatch'))}</div>`;
     return;
   }
 
   sessionPickerList.innerHTML = sessions.map((s) => {
     const label = s.label || s.firstMessage || String(s.id || '').slice(0, 12);
     const date = s.updatedAt ? new Date(s.updatedAt) : null;
-    const updated = date && !Number.isNaN(date.getTime()) ? date.toLocaleString() : '';
-    const meta = `${s.messageCount || 0} messages${updated ? ' · ' + updated : ''}`;
+    const updated = date && !Number.isNaN(date.getTime()) ? date.toLocaleString(getLocale()) : '';
+    const meta = `${t('sessions.count', { count: s.messageCount || 0 })}${updated ? ' · ' + updated : ''}`;
     const active = s.id === state.sessionId ? ' active' : '';
     return `<button type="button" class="resume-item${active}" data-sid="${escapeHtml(s.id)}">
       <span class="resume-icon">💬</span>
@@ -1146,7 +1158,7 @@ async function loadModelInfo() {
     const data = await apiJSON('GET', `api/sessions/${state.sessionId}`);
     const modelName = data.model || 'unknown';
     state.currentModel = data.currentModel || { provider: '', id: modelName, name: modelName };
-    sidebarModel.textContent = `Model: ${modelName}`;
+    sidebarModel.textContent = t('sessions.modelLabel', { model: modelName });
     updateSessionNotice(data.modelFallbackMessage);
     renderAttachmentTray();
   } catch {}
@@ -1352,10 +1364,10 @@ async function sendPrompt(message, options = {}) {
       state.editing = null;
       renderEditBanner();
       await switchSession(result.sessionId);
-      showNotice('Started a new branch. The original conversation is preserved.');
+      showNotice(t('notice.branch'));
       return sendPrompt(message, { ...options, skipEdit: true });
     } catch (err) {
-      showError(`Could not start a branch: ${err.message}`);
+      showError(t('err.branchFailed', { message: err.message }));
       return;
     }
   }
@@ -1526,7 +1538,7 @@ async function sendPrompt(message, options = {}) {
     renderAllMessages({ forceScroll: false });
     setStreaming(false);
     await loadSessionList();
-    showNotice('The reply had already finished; it was recovered after the stream stalled.');
+    showNotice(t('notice.recovered'));
   }
 
   try {
@@ -1597,7 +1609,7 @@ async function sendPrompt(message, options = {}) {
       // running server-side; keep the working UI and reconcile with the
       // session once it finishes.
       recoverAfterDisconnect = true;
-      showNotice(`Connection lost (${err.message}). Waiting for the session to finish…`);
+      showNotice(t('notice.connectionLost', { message: err.message }));
       startSessionPoll(sid);
     } else {
       // The server rejected the request before any stream started, so the
@@ -1668,7 +1680,7 @@ function handleSSEEvent(type, data, ctx) {
       block.className = 'thinking-block';
       block.innerHTML = `
         <div class="thinking-header" onclick="toggleToolBlock(this.parentElement.querySelector('.thinking-body'))">
-          <span>💭 Thinking</span>
+          <span>💭 ${escapeHtml(t('msg.details'))}</span>
           <span class="tool-chevron">▶</span>
         </div>
         <div class="thinking-body open"></div>`;
@@ -1707,8 +1719,8 @@ function handleSSEEvent(type, data, ctx) {
       block.innerHTML = `
         <div class="tool-header open" onclick="toggleToolBlock(this)">
           <span class="tool-icon">🔧</span>
-          <span class="tool-name">${escapeHtml(data.toolName || 'Tool')}</span>
-          <span class="tool-status running">Running...</span>
+          <span class="tool-name">${escapeHtml(data.toolName || t('tools.tool'))}</span>
+          <span class="tool-status running">${escapeHtml(t('tools.running'))}</span>
           <span class="tool-chevron">▶</span>
         </div>
         <div class="tool-body open">
@@ -1754,7 +1766,7 @@ function handleSSEEvent(type, data, ctx) {
         // nodes and expensive re-layouts.
         const MAX_STREAM_OUTPUT = 12000;
         const display = output.length > MAX_STREAM_OUTPUT
-          ? `… (${output.length - MAX_STREAM_OUTPUT} characters hidden) …\n` + output.slice(-MAX_STREAM_OUTPUT)
+          ? t('tools.hidden', { count: output.length - MAX_STREAM_OUTPUT }) + '\n' + output.slice(-MAX_STREAM_OUTPUT)
           : output;
         tb.streamOutput = display;
         code.textContent = display;
@@ -1772,11 +1784,11 @@ function handleSSEEvent(type, data, ctx) {
         if (status) {
           if (data.isError) {
             status.className = 'tool-status error';
-            status.textContent = 'Error';
+            status.textContent = t('tools.error');
             tb.isError = true;
           } else {
             status.className = 'tool-status success';
-            status.textContent = 'Done';
+            status.textContent = t('tools.done');
           }
         }
         tb.result = data.output || '';
@@ -1867,7 +1879,7 @@ function handleSSEEvent(type, data, ctx) {
 
 const WORKING_INDICATOR_INNER = `
     <span class="working-spinner" aria-hidden="true"></span>
-    <span class="working-text">Working</span>
+    <span class="working-text">${escapeHtml(t('working'))}</span>
     <span class="working-dots" aria-hidden="true"><span>.</span><span>.</span><span>.</span></span>`;
 
 function renderWorkingIndicator() {
@@ -1879,7 +1891,7 @@ function renderWorkingIndicator() {
 function appendWorkingMessage() {
   const div = document.createElement('div');
   div.className = 'msg msg-assistant msg-working-placeholder';
-  div.innerHTML = `<div class="msg-avatar">P</div><div class="msg-content">${renderWorkingIndicator()}</div>`;
+  div.innerHTML = `<div class="msg-avatar">F</div><div class="msg-content">${renderWorkingIndicator()}</div>`;
   chatMessages.appendChild(div);
   scrollToBottom();
 }
@@ -2001,14 +2013,14 @@ function showError(message, retry) {
 
   const text = document.createElement('span');
   text.className = 'msg-error-text';
-  text.textContent = `Error: ${message}`;
+  text.textContent = t('err.prefix', { message });
   div.appendChild(text);
 
   if (typeof retry === 'function') {
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'msg-error-retry';
-    button.textContent = 'Retry';
+    button.textContent = t('err.retry');
     button.addEventListener('click', () => {
       div.remove();
       retry();
@@ -2025,24 +2037,24 @@ function showError(message, retry) {
 // ── Slash command palette ─────────────────────────────────────────────────
 
 const FALLBACK_BUILTIN_LIST = [
-  { name: 'model', description: 'Select a model', argumentProvider: 'models' },
-  { name: 'skills', description: 'Browse skills and insert a skill command', argumentProvider: 'skills' },
-  { name: 'prompts', description: 'Browse prompt templates', argumentProvider: 'prompts' },
-  { name: 'new', description: 'Start a new chat session' },
-  { name: 'resume', description: 'Switch to another session' },
-  { name: 'compact', description: 'Compact the current session context' },
-  { name: 'session', description: 'Show session information' },
-  { name: 'abort', description: 'Stop the current response' },
-  { name: 'help', description: 'Show all available commands' },
+  { name: 'model', description: t('cmd.model'), argumentProvider: 'models' },
+  { name: 'skills', description: t('cmd.skills'), argumentProvider: 'skills' },
+  { name: 'prompts', description: t('cmd.prompts'), argumentProvider: 'prompts' },
+  { name: 'new', description: t('cmd.new') },
+  { name: 'resume', description: t('cmd.resume') },
+  { name: 'compact', description: t('cmd.compact') },
+  { name: 'session', description: t('cmd.session') },
+  { name: 'abort', description: t('cmd.abort') },
+  { name: 'help', description: t('cmd.help') },
 ];
 
 const FALLBACK_BUILTIN_COMMANDS = new Set(FALLBACK_BUILTIN_LIST.map(c => c.name));
 
 const COMMAND_GROUP_LABELS = {
-  builtin: 'Commands',
-  prompt: 'Prompt templates',
-  extension: 'Extension commands',
-  skill: 'Skills',
+  builtin: t('slash.group.builtin'),
+  prompt: t('slash.group.prompt'),
+  extension: t('slash.group.extension'),
+  skill: t('slash.group.skill'),
 };
 
 let commandsPromise = null;
@@ -2181,7 +2193,7 @@ function buildCommandItems(mode, query) {
       description: c.description || '',
       argumentHint: c.argumentHint || '',
       argumentProvider: c.argumentProvider || '',
-      group: COMMAND_GROUP_LABELS[c.source] || 'Commands',
+      group: COMMAND_GROUP_LABELS[c.source] || t('slash.group.builtin'),
       score: fuzzyScore(query, `${c.name} ${c.description || ''}`),
     }))
     .filter(item => item.score >= 0)
@@ -2263,16 +2275,16 @@ function renderSlashMenu(mode, query, items, loading) {
   slashMenu.classList.remove('hidden');
 
   if (loading) {
-    slashMenu.innerHTML = '<div class="slash-loading">Loading…</div>';
+    slashMenu.innerHTML = `<div class="slash-loading">${escapeHtml(t('slash.loading'))}</div>`;
     return;
   }
 
   if (!items.length) {
-    const noun = mode === 'models' ? 'models'
-      : mode === 'skills' ? 'skills'
-        : mode === 'prompts' ? 'prompt templates'
-          : 'commands';
-    slashMenu.innerHTML = `<div class="slash-empty">No matching ${noun}</div>`;
+    const noun = mode === 'models' ? t('slash.noun.models')
+      : mode === 'skills' ? t('slash.noun.skills')
+        : mode === 'prompts' ? t('slash.noun.prompts')
+          : t('slash.noun.commands');
+    slashMenu.innerHTML = `<div class="slash-empty">${escapeHtml(t('slash.empty', { noun }))}</div>`;
     return;
   }
 
@@ -2287,12 +2299,12 @@ function renderSlashMenu(mode, query, items, loading) {
     let badge = '';
     if (item.kind === 'model') {
       if (item.active) {
-        badge = '<span class="slash-item-badge active">current</span>';
+        badge = `<span class="slash-item-badge active">${escapeHtml(t('slash.current'))}</span>`;
       } else if (item.input && item.input.includes('image')) {
-        badge = '<span class="slash-item-badge vision">vision</span>';
+        badge = `<span class="slash-item-badge vision">${escapeHtml(t('slash.vision'))}</span>`;
       }
     } else if (item.source === 'builtin') {
-      badge = '<span class="slash-item-badge">built-in</span>';
+      badge = `<span class="slash-item-badge">${escapeHtml(t('slash.builtin'))}</span>`;
     } else {
       badge = `<span class="slash-item-badge">${escapeHtml(item.source)}</span>`;
     }
@@ -2307,7 +2319,7 @@ function renderSlashMenu(mode, query, items, loading) {
     </button>`;
   });
 
-  html += '<div class="slash-footer"><span>↑↓ navigate</span><span>Enter select</span><span>Esc close</span></div>';
+  html += `<div class="slash-footer"><span>${escapeHtml(t('slash.nav'))}</span><span>${escapeHtml(t('slash.select'))}</span><span>${escapeHtml(t('slash.close'))}</span></div>`;
   slashMenu.innerHTML = html;
   scrollSelectedSlashItem();
 }
@@ -2355,15 +2367,17 @@ async function chooseModelFromPalette(item) {
 
 async function compactSession() {
   if (!state.sessionId || state.isStreaming) return;
-  showNotice('Compacting session…');
+  showNotice(t('notice.compacting'));
   try {
     const data = await apiJSON('POST', `api/sessions/${state.sessionId}/compact`, {});
-    showNotice(data.summary ? `Session compacted: ${data.summary}` : 'Session compacted.');
+    showNotice(data.summary
+      ? t('notice.compactedWith', { summary: data.summary })
+      : t('notice.compacted'));
     const info = await apiJSON('GET', `api/sessions/${state.sessionId}`);
     state.messages = info.messages || [];
     renderAllMessages();
   } catch (err) {
-    showError(`Compaction failed: ${err.message}`);
+    showError(t('err.compactFailed', { message: err.message }));
   }
 }
 
@@ -2405,7 +2419,7 @@ function runBuiltinCommand(name) {
       setComposerValue('');
       const count = state.messages.length;
       const model = state.currentModel?.name || state.currentModel?.id || 'unknown';
-      showNotice(`Session ${state.sessionId || '—'} · model: ${model} · ${count} message${count === 1 ? '' : 's'}`);
+      showNotice(t('sessions.info', { id: state.sessionId || '—', model, count }));
       break;
     }
     case 'abort':
@@ -2645,6 +2659,7 @@ btnAbort.addEventListener('click', async () => {
 });
 
 $('#btnThemeToggle').addEventListener('click', toggleTheme);
+bindLanguagePicker();
 btnCancelEdit?.addEventListener('click', cancelEdit);
 btnDismissNotice?.addEventListener('click', () => updateSessionNotice(null));
 btnSidebarToggle?.addEventListener('click', openSidebar);
@@ -2656,6 +2671,72 @@ window.addEventListener('resize', () => {
 document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape' && sidebar.classList.contains('open')) closeSidebar();
 });
+
+// ── Language picker ───────────────────────────────────────────────────────
+// Switching a language reloads the page (see setLocale): the session list,
+// transcript and every cached HTML template are rebuilt in the new locale.
+function renderLangMenu() {
+  const menu = $('#langMenu');
+  if (!menu) return;
+  const current = getLocale();
+  menu.innerHTML = LOCALES.map((locale) => `
+    <button type="button" class="lang-item${locale.id === current ? ' active' : ''}"
+            role="menuitemradio" aria-checked="${locale.id === current}"
+            data-locale="${escapeAttr(locale.id)}">
+      <span class="lang-item-label">${escapeHtml(locale.label)}</span>
+      <span class="lang-item-check" aria-hidden="true">${locale.id === current ? '✓' : ''}</span>
+    </button>`).join('');
+}
+
+function openLangMenu() {
+  const menu = $('#langMenu');
+  const button = $('#btnLangToggle');
+  if (!menu || !button) return;
+  renderLangMenu();
+  menu.classList.remove('hidden');
+  button.setAttribute('aria-expanded', 'true');
+}
+
+function closeLangMenu() {
+  $('#langMenu')?.classList.add('hidden');
+  $('#btnLangToggle')?.setAttribute('aria-expanded', 'false');
+}
+
+function bindLanguagePicker() {
+  const button = $('#btnLangToggle');
+  const menu = $('#langMenu');
+  const short = $('#langShort');
+  if (!button || !menu) return;
+
+  if (short) short.textContent = getLocaleInfo().short;
+
+  button.addEventListener('click', (event) => {
+    event.stopPropagation();
+    if (menu.classList.contains('hidden')) openLangMenu();
+    else closeLangMenu();
+  });
+
+  menu.addEventListener('click', (event) => {
+    const item = event.target.closest('[data-locale]');
+    if (!item) return;
+    event.stopPropagation();
+    closeLangMenu();
+    setLocale(item.dataset.locale);
+  });
+
+  document.addEventListener('click', (event) => {
+    if (menu.classList.contains('hidden')) return;
+    if (event.target.closest('#btnLangToggle, #langMenu')) return;
+    closeLangMenu();
+  });
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && !menu.classList.contains('hidden')) {
+      closeLangMenu();
+      button.focus();
+    }
+  });
+}
 
 // Model selector
 $('#btnModelSelector').addEventListener('click', openModelSelector);
@@ -2718,7 +2799,7 @@ function renderModelList(data) {
   const modelData = data || state.modelsData;
   const container = $('#modelList');
   if (!modelData || !modelData.grouped || Object.keys(modelData.grouped).length === 0) {
-    container.innerHTML = '<div class="modal-error">No models available. Configure API keys first.</div>';
+    container.innerHTML = `<div class="modal-error">${escapeHtml(t('models.empty'))}</div>`;
     return;
   }
 
@@ -2751,14 +2832,14 @@ function renderModelList(data) {
       const isDefault = Boolean(defaultModel &&
         defaultModel.provider === provider && defaultModel.id === m.id);
       const sourceHint = isDefault && defaultModel.source === 'recommended'
-        ? ' (Fidere recommends this one)'
+        ? t('models.recommended')
         : '';
       const defaultBadge = isDefault
-        ? `<span class="model-default-badge" title="Default for new sessions${sourceHint}">default</span>`
+        ? `<span class="model-default-badge" title="${escapeAttr(t('models.defaultTitle') + sourceHint)}">${escapeHtml(t('models.defaultBadge'))}</span>`
         : '';
       const defaultButton = isDefault
         ? ''
-        : `<button class="model-default-btn" type="button" title="Use this model for every new session" onclick="setDefaultModel('${escapeHtml(provider)}', '${escapeHtml(m.id)}', event)">set default</button>`;
+        : `<button class="model-default-btn" type="button" title="${escapeAttr(t('models.setDefaultTitle'))}" onclick="setDefaultModel('${escapeHtml(provider)}', '${escapeHtml(m.id)}', event)">${escapeHtml(t('models.setDefault'))}</button>`;
       html += `
         <div class="model-item${activeClass}" data-provider="${escapeHtml(provider)}" data-model-id="${escapeHtml(m.id)}" onclick="selectModel('${escapeHtml(provider)}', '${escapeHtml(m.id)}')">
           <span class="model-item-name">${escapeHtml(m.name)}${reasoningIcon}</span>
@@ -2790,7 +2871,7 @@ window.toggleModelProvider = function (provider) {
 async function openModelSelector() {
   const modal = $('#modelModal');
   const container = $('#modelList');
-  container.innerHTML = '<div class="modal-loading">Loading models...</div>';
+  container.innerHTML = `<div class="modal-loading">${escapeHtml(t('models.loading'))}</div>`;
   modal.classList.remove('hidden');
 
   const data = await loadModels();
@@ -2819,7 +2900,7 @@ window.setDefaultModel = async function (provider, modelId, event) {
       renderModelList(await loadModels());
     }
   } catch (err) {
-    showError(`Failed to save the default model: ${err.message}`);
+    showError(t('models.saveFailed', { message: err.message }));
   }
 };
 
@@ -2829,7 +2910,7 @@ window.selectModel = async function (provider, modelId) {
     const data = await apiJSON('POST', `api/sessions/${state.sessionId}/model`, { provider, modelId });
     if (data.success && data.model) {
       state.currentModel = data.model;
-      sidebarModel.textContent = `Model: ${data.model.name || data.model.id}`;
+      sidebarModel.textContent = t('sessions.modelLabel', { model: data.model.name || data.model.id });
       renderAttachmentTray();
       renderModelList(await loadModels());
       closeModelSelector();
@@ -2838,7 +2919,7 @@ window.selectModel = async function (provider, modelId) {
     return null;
   } catch (err) {
     console.error('Failed to switch model:', err);
-    showError(`Failed to switch model: ${err.message}`);
+    showError(t('models.switchFailed', { message: err.message }));
     return null;
   }
 };
@@ -2901,7 +2982,7 @@ async function init() {
     // Show welcome screen with error hint
     const welcome = $('.welcome', chatMessages);
     if (welcome) {
-      welcome.innerHTML += `<p style="color:var(--danger);margin-top:12px">Could not connect to server. Make sure the server is running and API keys are configured.</p>`;
+      welcome.innerHTML += `<p style="color:var(--danger);margin-top:12px">${escapeHtml(t('err.connect'))}</p>`;
     }
   }
 }
