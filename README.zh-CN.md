@@ -1,5 +1,7 @@
 # Fidere
 
+[![CI](https://github.com/sean-cc/fidere/actions/workflows/ci.yml/badge.svg)](https://github.com/sean-cc/fidere/actions/workflows/ci.yml)
+
 [English](README.md) | 简体中文
 
 Fidere 是一个跑在浏览器里的小型 agent 工作台。它基于 [pi coding agent](https://github.com/earendil-works/pi/tree/main/packages/coding-agent)（大家一般就叫它 **pi agent**）的 SDK 构建，所以 agent 能读写文件、执行命令，并实时显示思考和工具调用——同时不会把框架、打包器或第二个服务拖到你的机器上。
