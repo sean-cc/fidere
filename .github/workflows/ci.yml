@@ -1,0 +1,71 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# A new push to the same branch cancels the run that is still in flight.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: test (node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # 22 is the lowest version `engines` allows, so it is the one that
+        # actually enforces the floor. 24 catches deprecations early.
+        node: ['22', '24']
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+
+      # `ci` instead of `install`: it obeys the lockfile exactly and fails if
+      # package.json and package-lock.json ever drift apart.
+      - run: npm ci
+
+      - name: prices
+        run: npm run test:prices
+
+      - name: markdown
+        run: npm run test:markdown
+
+      - name: default models
+        run: npm run test:defaults
+
+      - name: launcher
+        run: npm run test:sdk
+
+  smoke:
+    name: smoke (headless chrome)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - run: npm ci
+
+      # The runner's preinstalled Chrome moves around; this hands us a path.
+      - uses: browser-actions/setup-chrome@v1
+        id: chrome
+
+      - name: ui smoke test
+        run: npm run smoke
+        env:
+          CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
