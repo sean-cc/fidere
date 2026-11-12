@@ -4,6 +4,36 @@
   "description": "A small agent workspace in the browser, built on the pi SDK.",
   "type": "module",
   "license": "MIT",
+  "bin": {
+    "fidere": "scripts/start.mjs"
+  },
+  "files": [
+    "server.js",
+    "prices.js",
+    "default-models.js",
+    "public/",
+    "scripts/start.mjs",
+    "scripts/setup.mjs",
+    "docs/screenshot-chat.jpg",
+    "docs/screenshot-models.jpg",
+    "DEVELOPMENT.md"
+  ],
+  "keywords": [
+    "agent",
+    "agent-workspace",
+    "ai-agent",
+    "claude",
+    "deepseek",
+    "developer-tools",
+    "llm",
+    "nodejs",
+    "openai",
+    "pi-agent",
+    "pi-coding-agent",
+    "self-hosted",
+    "web-ui",
+    "zero-dependencies"
+  ],
   "repository": {
     "type": "git",
     "url": "git+https://github.com/sean-cc/fidere.git"
@@ -15,6 +45,9 @@
   "engines": {
     "node": ">=22.19.0"
   },
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "start": "node scripts/start.mjs",
     "dev": "node scripts/start.mjs --watch",
@@ -24,7 +57,8 @@
     "test:defaults": "node --test scripts/default-models-test.mjs",
     "start:awake": "caffeinate -ims node scripts/start.mjs",
     "setup": "node scripts/setup.mjs",
-    "test:sdk": "node --test scripts/start-test.mjs"
+    "test:sdk": "node --test scripts/start-test.mjs",
+    "test": "npm run test:prices && npm run test:markdown && npm run test:defaults && npm run test:sdk"
   },
   "dependencies": {
     "@earendil-works/pi-coding-agent": "^1.5.2"

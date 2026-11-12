@@ -1,0 +1,72 @@
+name: Publish
+
+# Publishing happens on a GitHub Release, so the version that ships is the
+# version in the tag that was released. Bumping package.json and creating a
+# release are the only two steps.
+#
+# Uses npm Trusted Publishing (OIDC) — no NPM_TOKEN secret is stored anywhere.
+# One-time setup on npmjs.com, after the account exists:
+#
+#   Package → Settings → Trusted Publisher → GitHub Actions
+#     Organization or user: sean-cc
+#     Repository:           fidere
+#     Workflow filename:    publish.yml
+#     Environment:          (leave empty)
+#
+# npm then accepts tokens minted for this exact repo + workflow file, and every
+# published version gets a signed provenance attestation.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Build the tarball but do not publish'
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+  id-token: write # required to request the OIDC token npm exchanges for a publish token
+
+concurrency:
+  group: publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
+          cache: npm
+
+      - run: npm ci
+
+      # A release tag and the package version drifting apart is the one mistake
+      # that cannot be undone once published.
+      - name: check tag matches package.json
+        if: github.event_name == 'release'
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          version=$(node -p "require('./package.json').version")
+          echo "tag=$tag package=$version"
+          if [ "$tag" != "$version" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match package.json version $version"
+            exit 1
+          fi
+
+      - name: test
+        run: npm test
+
+      - name: show what will be published
+        run: npm pack --dry-run
+
+      - name: publish
+        if: github.event_name == 'release' || inputs.dry_run == false
+        run: npm publish --provenance --access public

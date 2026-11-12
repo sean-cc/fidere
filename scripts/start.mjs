@@ -14,6 +14,11 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import readline from 'node:readline/promises';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+// Where the user's own files, sessions and settings live. Running from a git
+// clone this is the repository itself; running from a global install (`fidere`)
+// it is whatever directory was invoked. package.json lives in ROOT either way,
+// so the entry point is resolved absolutely.
+const WORKSPACE = process.env.FIDERE_WORKSPACE || process.cwd();
 const PACKAGE = '@earendil-works/pi-coding-agent';
 const REGISTRY_TIMEOUT_MS = 4000;
 
@@ -81,12 +86,13 @@ function run(command, args) {
 }
 
 function startServer(extraArgs) {
-  let args = ['server.js', ...extraArgs];
+  const entry = path.join(ROOT, 'server.js');
+  let args = [entry, ...extraArgs];
   if (extraArgs.includes('--watch')) {
-    args = ['--watch', 'server.js', ...extraArgs.filter((arg) => arg !== '--watch')];
+    args = ['--watch', entry, ...extraArgs.filter((arg) => arg !== '--watch')];
   }
   return new Promise((resolve) => {
-    const child = spawn(process.execPath, args, { cwd: ROOT, stdio: 'inherit', env: process.env });
+    const child = spawn(process.execPath, args, { cwd: WORKSPACE, stdio: 'inherit', env: process.env });
     const signals = ['SIGINT', 'SIGTERM', 'SIGHUP'];
     const forward = (signal) => {
       try { child.kill(signal); } catch {}
