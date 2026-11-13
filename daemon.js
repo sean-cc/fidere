@@ -439,6 +439,61 @@ export function createDaemon(options = {}) {
   };
 }
 
+// ── Scaffolding ────────────────────────────────────────────────────────────
+
+const NAME_RE = /^[a-z0-9][a-z0-9-]*$/;
+
+function skillTemplate(name) {
+  return `---
+name: ${name}
+description: 一句话说明这个任务做什么（会显示在任务面板里）
+# schedule: daily 09:00
+budget: ¥0.4
+# verify: node verify.mjs
+# notify: echo "$FIDERE_TASK ok=$FIDERE_TASK_OK" >> notify.log
+tools: read,write,edit,bash
+---
+
+# ${name}
+
+1. 先跑确定性的脚本（比如 \`node fetch.mjs\`），不要让模型去写 curl
+2. 读结果，做需要判断的取舍
+3. 把最终结果写到 \`out/result.md\`
+
+不要编造数据：输入里没有的，不要写进结果。
+`;
+}
+
+const VERIFY_TEMPLATE = `// Exit 0 means the task succeeded; anything else is a failed run.
+// Enable it by removing the "#" before "verify:" in SKILL.md.
+import fs from 'node:fs';
+
+try {
+  const text = fs.readFileSync('out/result.md', 'utf8');
+  if (text.trim().length < 20) {
+    console.error('out/result.md is missing or too short');
+    process.exit(1);
+  }
+  console.log('verified: out/result.md');
+} catch {
+  console.error('out/result.md is missing');
+  process.exit(1);
+}
+`;
+
+/** Create workflows/<name>/ with a SKILL.md and a verify skeleton. */
+export function scaffoldWorkflow(root, name) {
+  if (!name || !NAME_RE.test(name)) {
+    throw new Error('name must be lowercase letters, digits or hyphens, e.g. daily-news');
+  }
+  const dir = path.join(root, 'workflows', name);
+  if (fs.existsSync(dir)) throw new Error(`${dir} already exists`);
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, 'SKILL.md'), skillTemplate(name));
+  fs.writeFileSync(path.join(dir, 'verify.mjs'), VERIFY_TEMPLATE);
+  return dir;
+}
+
 // ── CLI ────────────────────────────────────────────────────────────────────
 
 const isMain = process.argv[1] && path.resolve(process.argv[1]) === path.resolve(new URL(import.meta.url).pathname);
@@ -453,6 +508,21 @@ if (isMain) {
     for (const w of workflows) {
       const last = w.lastRun ? `${w.lastRun}${w.lastOk === false ? ' FAILED' : ''}` : 'never';
       console.log(`${w.name.padEnd(22)} ${(w.schedule || 'manual').padEnd(16)} next ${w.nextRunAt || '-'}  last ${last}`);
+    }
+    process.exit(0);
+  }
+
+  if (argv.includes('--new')) {
+    const name = argv[argv.indexOf('--new') + 1];
+    try {
+      const dir = scaffoldWorkflow(root, name);
+      console.log(`created ${path.relative(root, dir)}/`);
+      console.log('  SKILL.md    — fill in the steps');
+      console.log('  verify.mjs  — the check; enable it by removing the "#" before "verify:"');
+      console.log(`\ntry it:  node daemon.js --run ${name}`);
+    } catch (err) {
+      console.error(err.message);
+      process.exit(1);
     }
     process.exit(0);
   }

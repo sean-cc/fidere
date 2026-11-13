@@ -129,6 +129,11 @@ fidere/
 A workflow is a directory under `workflows/` containing a `SKILL.md`. The
 frontmatter is read by Fidere; the body is read by the model.
 
+`node daemon.js --new <name>` writes that directory for you: a `SKILL.md` with
+`schedule`, `verify` and `notify` left commented out (so a new workflow is
+manual-only until you decide otherwise) plus a `verify.mjs` skeleton. Names are
+lowercase letters, digits and hyphens.
+
 | Field | Meaning |
 |-------|---------|
 | `name` | Display name; defaults to the directory name |

@@ -13,6 +13,7 @@ import {
   parseBudget,
   parseFrontmatter,
   parseSchedule,
+  scaffoldWorkflow,
   timezoneInfo,
 } from '../daemon.js';
 import { summarizeDay } from '../runner.js';
@@ -144,6 +145,38 @@ Do the thing.
   assert.deepEqual(entry.tools, ['read', 'write']);
   assert.equal(entry.schedule.kind, 'daily');
   assert.match(entry.body, /Do the thing/);
+  fs.rmSync(root, { recursive: true, force: true });
+});
+
+// ── Scaffolding ────────────────────────────────────────────────────────────
+
+test('scaffoldWorkflow writes a workflow the loader can read', () => {
+  process.env.FIDERE_USD_CNY = '7.2';
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'fidere-new-'));
+  const dir = scaffoldWorkflow(root, 'my-task');
+  assert.ok(fs.existsSync(path.join(dir, 'SKILL.md')));
+  assert.ok(fs.existsSync(path.join(dir, 'verify.mjs')));
+
+  const entries = loadWorkflows(path.join(root, 'workflows'));
+  assert.equal(entries.length, 1);
+  const [entry] = entries;
+  assert.equal(entry.name, 'my-task');
+  assert.equal(entry.budgetUsd, 0.055556);
+  // schedule, verify and notify stay commented out: a new workflow is manual-only
+  // until its author decides otherwise.
+  assert.equal(entry.schedule, null);
+  assert.equal(entry.verify, null);
+  assert.equal(entry.notify, null);
+  assert.deepEqual(entry.tools, ['read', 'write', 'edit', 'bash']);
+  fs.rmSync(root, { recursive: true, force: true });
+});
+
+test('scaffoldWorkflow refuses bad names and existing directories', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'fidere-new-'));
+  assert.throws(() => scaffoldWorkflow(root, 'Bad_Name'), /lowercase/);
+  assert.throws(() => scaffoldWorkflow(root, ''), /lowercase/);
+  scaffoldWorkflow(root, 'ok-name');
+  assert.throws(() => scaffoldWorkflow(root, 'ok-name'), /already exists/);
   fs.rmSync(root, { recursive: true, force: true });
 });
 
