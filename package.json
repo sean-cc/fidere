@@ -14,6 +14,7 @@
     "docs/*.md",
     "docs/screenshot-chat.jpg",
     "docs/screenshot-models.jpg",
+    "guard.ts",
     "prices.js",
     "public/",
     "runner.js",
@@ -62,9 +63,10 @@
     "start:awake": "caffeinate -ims node scripts/start.mjs",
     "setup": "node scripts/setup.mjs",
     "test:sdk": "node --test scripts/start-test.mjs",
-    "test": "npm run test:prices && npm run test:markdown && npm run test:defaults && npm run test:sdk && npm run test:daemon",
+    "test": "npm run test:prices && npm run test:markdown && npm run test:defaults && npm run test:sdk && npm run test:daemon && npm run test:guard",
     "daemon": "node daemon.js",
-    "test:daemon": "node --test scripts/daemon-test.mjs"
+    "test:daemon": "node --test scripts/daemon-test.mjs",
+    "test:guard": "node --test scripts/guard-test.mjs"
   },
   "dependencies": {
     "@earendil-works/pi-coding-agent": "^1.5.2"

@@ -11,6 +11,9 @@ import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 const DEFAULT_TOOLS = ['read', 'write', 'edit', 'grep', 'find', 'ls', 'bash'];
+// Ships next to this file and is loaded into every task: the boundary that a
+// prompt cannot provide. See guard.ts.
+const GUARD_PATH = path.join(path.dirname(fileURLToPath(import.meta.url)), 'guard.ts');
 const SKIP_ON_COPY = new Set(['node_modules', '.git', '.session', 'out', 'runs']);
 // grace period between SIGTERM and SIGKILL when a task runs over budget or time
 const KILL_GRACE_MS = 5000;
@@ -150,6 +153,7 @@ export async function runWorkflow(spec, options = {}) {
     '--model', model.id,
     '--thinking', model.thinking || 'low',
     '--tools', (spec.tools?.length ? spec.tools : DEFAULT_TOOLS).join(','),
+    ...(fs.existsSync(GUARD_PATH) && process.env.FIDERE_GUARD !== 'off' ? ['--extension', GUARD_PATH] : []),
     '--append-system-prompt', taskFile,
     '--session-dir', sessionDir,
     '-p', spec.prompt || '开始执行任务。',
@@ -162,7 +166,11 @@ export async function runWorkflow(spec, options = {}) {
     // task and a chat never disagree about either. The one thing added is a
     // stable key for this scheduled moment, so a workflow can dedupe its own
     // external side effects (an order, an email) across retries and reruns.
-    env: { ...process.env, ...(runKey ? { FIDERE_RUN_KEY: runKey } : {}) },
+    env: {
+      ...process.env,
+      FIDERE_WORK_DIR: runDir,
+      ...(runKey ? { FIDERE_RUN_KEY: runKey } : {}),
+    },
   });
 
   const stderrPath = path.join(runDir, 'stderr.log');

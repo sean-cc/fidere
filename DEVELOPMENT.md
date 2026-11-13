@@ -176,6 +176,31 @@ is irrelevant for a task that fires once a day.
   (mail, trading, image APIs) and that is a problem for the workflow, not the
   scheduler.
 
+### The task guard
+
+`guard.ts` is loaded into every task with `--extension` and enforces the write
+boundary described in the README. The rules live in `guard-core.js` so they can
+be unit tested without starting pi; the extension is only an adapter that turns
+a verdict into `{ block: true, reason }` and appends the refused action to
+`blocked.log` in the run directory.
+
+It blocks, in the tool layer:
+
+- `sudo`, `rm` from the filesystem root, `mkfs`/`shutdown`/`reboot`, `dd of=/dev/*`,
+  `git push --force`, `git reset --hard`, `kill -9 -1`
+- reads of `~/.pi/agent` (credentials and Fidere settings)
+- `curl`/`wget` uploads (`-d`, `--data`, `-F`, `--upload-file`, `--post-data`)
+- `write`/`edit` targets outside the task directory
+- shell redirection and `tee` to an absolute or home-anchored path outside the
+  task directory (`/tmp` and `/dev/null` excepted)
+
+Set `FIDERE_GUARD=off` to disable it, and `FIDERE_KEEP_RUNS` (default 10) to
+control how many run directories are kept per workflow.
+
+It is a boundary, not a sandbox. `bash` still reaches whatever the account can
+reach, and a path assembled at runtime defeats the redirection check. Real
+isolation needs a container or a dedicated user account.
+
 ### Budget, retries and verification
 
 - The budget covers the whole task, retries included. Each attempt receives the

@@ -110,10 +110,12 @@ The format is standard [Agent Skills](https://agentskills.io/specification), so 
 
 When you're chatting you see a mistake as it happens; when nobody is watching, a mistake runs all night. So this isn't solved with a prompt asking the model to behave — it's solved with hard boundaries:
 
-- **Permission tiers:** read-only / write only to a designated directory / run any command. The first two are the default; the third has to be turned on explicitly
-- **Dangerous actions blocked in the tool layer:** deletion, force-push, uploads to external hosts and edits to credential files are refused and logged, not left to the model's judgement
-- **A locked working directory:** a task works inside its own throwaway directory and is read-only outside it
+- **A real write boundary:** a task can write only to its own throwaway directory and `/tmp`; `write`, `edit` and shell redirection are refused anywhere else
+- **Dangerous actions blocked in the tool layer:** `sudo`, deleting from the filesystem root, force-push, uploads to external hosts and reads of `~/.pi/agent` are refused and written to `blocked.log`
+- **Capabilities stay off by default:** leave `bash` out of `tools` when a task does not need to run commands; a task never loads your own skills, extensions or context files
 - **Everything on record:** sessions, commands, cost and results are all persisted, so a run can be replayed
+
+This is a boundary, not a sandbox: `bash` can still read whatever the account can read. Real isolation needs a container or a dedicated user.
 
 Fidere listens on `127.0.0.1`, is single-user, and accepts one access token. It is meant to be run by you — or by each person for themselves — not as a multi-tenant platform.
 

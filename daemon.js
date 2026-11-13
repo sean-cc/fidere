@@ -224,7 +224,20 @@ export function createDaemon(options = {}) {
     return trigger > (s.lastDue || 0) ? trigger : null;
   }
 
+  // `running` is the only lock in the system: /api/tasks uses it to refuse a
+  // second manual run, so it has to be cleared on every exit path. A task that
+  // throws would otherwise leave the daemon busy forever.
   async function execute(entry, dueAt) {
+    runtime.current = entry.name;
+    try {
+      return await runTask(entry, dueAt);
+    } finally {
+      runtime.current = null;
+      pruneRuns(entry.name);
+    }
+  }
+
+  async function runTask(entry, dueAt) {
     const primary = entry.model || defaultModel();
     if (!primary) {
       log(`${entry.name}: no model configured — set FIDERE_TASK_MODEL or a default in settings.json`);
@@ -232,7 +245,6 @@ export function createDaemon(options = {}) {
     }
 
     const late = Date.now() - dueAt;
-    runtime.current = entry.name;
     log(`${entry.name}: starting${late > TICK_MS ? ` (${Math.round(late / 60000)}min late)` : ''}`);
 
     // Retry once on the same model, then once on the escalation model if the
@@ -293,9 +305,20 @@ export function createDaemon(options = {}) {
     s.lastOk = result.ok;
     saveState();
 
-    runtime.current = null;
     log(`${entry.name}: ${result.ok ? 'ok' : `failed — ${result.reason}`} ($${spent.costUsd.toFixed(4)})`);
     return { ...result, costUsd: spent.costUsd, costCny: Number((spent.costUsd * Number(process.env.FIDERE_USD_CNY || 7.2)).toFixed(4)), tokens: spent.tokens, turns: spent.turns };
+  }
+
+  // Runs leave a full session behind: useful for a day, dead weight after a
+  // month. Keep the last N and delete the rest, oldest first (directory names
+  // sort chronologically).
+  function pruneRuns(name, keep = Number(process.env.FIDERE_KEEP_RUNS || 10)) {
+    const dir = path.join(runsDir, name);
+    let stamps = [];
+    try { stamps = fs.readdirSync(dir).sort(); } catch { return; }
+    for (const stamp of stamps.slice(0, Math.max(0, stamps.length - keep))) {
+      try { fs.rmSync(path.join(dir, stamp), { recursive: true, force: true }); } catch { /* best effort */ }
+    }
   }
 
   // Notification is a shell command the workflow owns, so it can be `curl` to a
