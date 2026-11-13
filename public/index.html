@@ -38,6 +38,10 @@
       <!-- Sessions loaded dynamically -->
     </div>
     <div class="sidebar-footer">
+      <button class="btn-model-selector" id="btnTasks" title="Scheduled tasks" data-i18n-title="sidebar.tasks">
+        <div class="sidebar-model" data-i18n="sidebar.tasks">Tasks</div>
+        <span class="model-chevron">▸</span>
+      </button>
       <button class="btn-model-selector" id="btnModelSelector" title="Select model" data-i18n-title="sidebar.selectModel">
         <div class="sidebar-model" id="sidebarModel" data-i18n="sidebar.noModel">No model configured</div>
         <span class="model-chevron">▾</span>
@@ -71,6 +75,19 @@
       </div>
       <div class="modal-body" id="modelList">
         <div class="modal-loading" data-i18n="models.loading">Loading models...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scheduled tasks modal -->
+  <div class="modal-overlay hidden" id="taskModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 data-i18n="tasks.title">Scheduled tasks</h3>
+        <button class="modal-close" id="btnTaskModalClose">✕</button>
+      </div>
+      <div class="modal-body" id="taskList">
+        <div class="modal-loading" data-i18n="tasks.loading">Loading tasks...</div>
       </div>
     </div>
   </div>

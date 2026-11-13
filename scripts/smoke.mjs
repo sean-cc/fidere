@@ -97,6 +97,36 @@ const server = http.createServer(async (req, res) => {
       },
     });
   }
+  if (url.pathname === '/api/tasks' && req.method === 'GET') {
+    return sendJson(res, {
+      running: null,
+      enabled: true,
+      workflows: [
+        {
+          name: 'alpha-task',
+          description: 'First scheduled task',
+          schedule: 'daily 08:00',
+          budgetUsd: 0.4,
+          lastRun: '2026-11-13T00:00:00.000Z',
+          lastOk: true,
+          nextRunAt: '2026-11-14T00:00:00.000Z',
+        },
+        {
+          name: 'beta-task',
+          description: 'Manual only',
+          schedule: null,
+          budgetUsd: 0.05,
+          lastRun: null,
+          lastOk: null,
+          nextRunAt: null,
+        },
+      ],
+      today: { day: '2026-11-13', runs: 3, ok: 2, failed: 1, costUsd: 0.0123 },
+    });
+  }
+  if (/^\/api\/tasks\/[^/]+\/run$/.test(url.pathname) && req.method === 'POST') {
+    return sendJson(res, { started: 'alpha-task' }, 202);
+  }
   if (url.pathname.startsWith('/api/')) {
     return sendJson(res, { error: 'not found' }, 404);
   }
@@ -984,6 +1014,39 @@ async function browserTests() {
     'language menu closes on an outside click',
     langMenu?.classList.contains('hidden') && langButton.getAttribute('aria-expanded') === 'false',
     `hidden=${langMenu?.classList.contains('hidden')}`,
+  );
+
+  document.getElementById('btnTasks')?.click();
+  await wait(150);
+  const taskList = document.getElementById('taskList');
+  const taskRows = taskList?.querySelectorAll('.task-row') || [];
+  check(
+    'tasks panel lists workflows',
+    taskRows.length === 2,
+    `rows=${taskRows.length}`,
+  );
+  check(
+    'tasks panel shows the day summary',
+    Boolean(taskList?.querySelector('.task-summary')?.textContent.includes('3')),
+    taskList?.querySelector('.task-summary')?.textContent,
+  );
+  check(
+    'a workflow can be started from the panel',
+    await (async () => {
+      const button = taskList?.querySelector('[data-run]');
+      if (!button) return false;
+      button.click();
+      await wait(200);
+      return button.disabled === true;
+    })(),
+    'run button disabled while starting',
+  );
+  document.getElementById('btnTaskModalClose')?.click();
+  await wait(50);
+  check(
+    'tasks panel closes',
+    document.getElementById('taskModal')?.classList.contains('hidden'),
+    `hidden=${document.getElementById('taskModal')?.classList.contains('hidden')}`,
   );
 
   check(

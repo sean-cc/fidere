@@ -137,6 +137,120 @@ async function apiJSON(method, path, body) {
   return res.json();
 }
 
+// ── Scheduled tasks ───────────────────────────────────────────────────────
+// The daemon owns the schedule and the ledger; this panel only reads
+// /api/tasks and asks it to start a run. Nothing here is authoritative, so the
+// panel can be closed, reloaded or stale without affecting a running task.
+let taskRefreshTimer = null;
+
+function formatTaskTime(iso) {
+  if (!iso) return t('tasks.never');
+  try {
+    return new Intl.DateTimeFormat(getLocale(), {
+      month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
+    }).format(new Date(iso));
+  } catch {
+    return new Date(iso).toLocaleString();
+  }
+}
+
+function renderTaskList(data) {
+  const container = $('#taskList');
+  const workflows = data?.workflows || [];
+  if (!workflows.length) {
+    container.innerHTML = `<div class="modal-empty">${escapeHtml(t('tasks.empty'))}</div>`;
+    return;
+  }
+
+  const today = data.today || { runs: 0, ok: 0, costUsd: 0 };
+  const cny = (Number(today.costUsd) * USD_TO_CNY).toFixed(2);
+  const summary = `<div class="task-summary">${escapeHtml(t('tasks.today', {
+    ok: today.ok || 0, runs: today.runs || 0, cost: cny,
+  }))}</div>`;
+
+  const rows = workflows.map((w) => {
+    const state = w.running
+      ? '<span class="task-badge running">' + escapeHtml(t('tasks.running')) + '</span>'
+      : w.lastOk === true
+        ? '<span class="task-badge ok">' + escapeHtml(t('tasks.ok')) + '</span>'
+        : w.lastOk === false
+          ? '<span class="task-badge fail">' + escapeHtml(t('tasks.failed')) + '</span>'
+          : '';
+    const schedule = w.schedule || t('tasks.manual');
+    const last = w.lastRun ? formatTaskTime(w.lastRun) : t('tasks.never');
+    const next = w.nextRunAt ? formatTaskTime(w.nextRunAt) : '—';
+    return `
+      <div class="task-row" data-task="${escapeAttr(w.name)}">
+        <div class="task-main">
+          <div class="task-name">${escapeHtml(w.name)} ${state}</div>
+          <div class="task-desc">${escapeHtml(w.description || '')}</div>
+          <div class="task-meta">
+            <span class="task-schedule">${escapeHtml(schedule)}</span>
+            <span>${escapeHtml(t('tasks.next', { time: next }))}</span>
+            <span>${escapeHtml(t('tasks.last', { time: last }))}</span>
+          </div>
+        </div>
+        <button class="task-run" type="button" data-run="${escapeAttr(w.name)}">${escapeHtml(t('tasks.run'))}</button>
+      </div>`;
+  }).join('');
+
+  container.innerHTML = summary + rows;
+}
+
+async function renderTasks() {
+  const container = $('#taskList');
+  try {
+    renderTaskList(await apiJSON('GET', 'api/tasks'));
+  } catch (err) {
+    container.innerHTML = `<div class="modal-empty">${escapeHtml(t('tasks.loadFailed', { message: err.message }))}</div>`;
+  }
+}
+
+async function openTasks() {
+  $('#taskModal').classList.remove('hidden');
+  await renderTasks();
+  clearInterval(taskRefreshTimer);
+  taskRefreshTimer = setInterval(() => {
+    if (!$('#taskModal').classList.contains('hidden')) renderTasks();
+  }, 15000);
+}
+
+function closeTasks() {
+  $('#taskModal').classList.add('hidden');
+  clearInterval(taskRefreshTimer);
+  taskRefreshTimer = null;
+}
+
+$('#btnTasks').addEventListener('click', openTasks);
+$('#btnTaskModalClose').addEventListener('click', closeTasks);
+$('#taskModal').addEventListener('click', (e) => {
+  if (e.target.id === 'taskModal') closeTasks();
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && !$('#taskModal').classList.contains('hidden')) closeTasks();
+});
+
+$('#taskList').addEventListener('click', async (e) => {
+  const button = e.target.closest('[data-run]');
+  if (!button) return;
+  const name = button.dataset.run;
+  button.disabled = true;
+  button.textContent = t('tasks.starting');
+  try {
+    await apiJSON('POST', `api/tasks/${encodeURIComponent(name)}/run`);
+    button.textContent = t('tasks.started');
+  } catch (err) {
+    button.textContent = t('tasks.startFailed');
+    button.title = err.message;
+    button.disabled = false;
+    return;
+  }
+  // The run is asynchronous; poll a couple of times so the row reflects it
+  // without the user having to reopen the panel.
+  setTimeout(renderTasks, 2500);
+  setTimeout(renderTasks, 8000);
+});
+
 // ── Sign-in gate ──────────────────────────────────────────────────────────
 
 function showLogin(message = '') {
