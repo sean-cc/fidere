@@ -1,34 +1,186 @@
 # Fidere
 
 [![CI](https://github.com/sean-cc/fidere/actions/workflows/ci.yml/badge.svg)](https://github.com/sean-cc/fidere/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Node.js 22.19+](https://img.shields.io/badge/node-%E2%89%A522.19-brightgreen.svg)](package.json)
 
 **English** | [简体中文](README.zh-CN.md) | [繁體中文](README.zh-TW.md) | [繁體中文（香港）](README.zh-HK.md) | [日本語](README.ja.md) | [한국어](README.ko.md) | [Русский](README.ru.md)
 
+**An always-on assistant that works through its schedule while you're away — and stays accountable.**
 
-Fidere is a small agent workspace that runs in your browser. It is built on the [pi coding agent](https://github.com/earendil-works/pi/tree/main/packages/coding-agent) SDK, so the agent can read and write files, run commands, and stream its thinking and tool calls live — without dragging a framework, a bundler or a second service onto your machine.
+Fidere is an assistant that stays on. You talk to it in the browser, ask it questions, drop ideas on it so they don't get lost; and when you're not around, it works through its schedule on its own — finishing without supervision, telling you the result, and stopping itself when a task runs over budget.
+
+Fidere is Latin for **"to trust"**. Trust doesn't come from a smarter model. It comes from three plain things: **what it did can be checked, what it broke can be undone, and what it spent is on the books**.
 
 ![Fidere conversation view](docs/screenshot-chat.jpg)
 
-- **Small on purpose** — one dependency (the pi SDK), no frontend framework, no bundler, no CDN. ~8,300 lines of plain JS/CSS, and `node scripts/start.mjs` is the entire run path.
-- **Streams the work, not just the answer** — thinking and tool calls appear inline, fold when a reply finishes, and can be reopened per reply.
-- **Speaks your language** — the interface ships in English, 简体中文, 繁體中文 (台灣 / 香港), 日本語, 한국어 and Русский; pick one from the globe button in the sidebar.
-- **Shows what it costs** — every reply carries token usage and the vendor's own price for the endpoint it actually used, not a static rate card.
-- **Never picks an expensive model behind your back** — new sessions start on a model you can see and change, and a silent model swap on a reopened session is announced above the transcript.
+> **New here?** Jump to [Quick start](#quick-start) to get from clone to a running assistant in about five minutes.
 
-![Model picker with a saved default](docs/screenshot-models.jpg)
+## What makes it different
 
-## What you can do
+### Small enough to read yourself
 
-- Chat with the agent in the browser and watch thinking/tool calls as they happen
-- Collapse or expand each reply's thinking and tool calls; finished replies fold automatically
-- Jump back to earlier prompts with the timeline on the right
-- Read history without being pulled to the bottom; return to the latest output when you are ready
-- Manage sessions, switch models, and attach images or files
-- Pick the model new sessions start on (`set default` in the picker) and see a notice when a reopened session had to change models
-- See each reply's timestamp, token usage and cost (vendor prices, with an estimated CNY conversion)
-- Edit an earlier message and resend it on a new branch, copy replies, retry rejected prompts, and recover after a dropped stream
-- Keep a Mac awake during long tasks (optional)
-- Switch the interface language (English, 简体中文, 繁體中文 (台灣), 繁體中文 (香港), 日本語, 한국어, Русский) from the globe button in the sidebar
+One dependency: the [pi coding agent](https://github.com/earendil-works/pi), which Fidere uses as a library — you don't install the `pi` CLI yourself. No frontend framework, no bundler, no CDN, about 8,300 lines of plain JS/CSS. No database, no message queue, no second service — `node scripts/start.mjs` is the whole run path. A workflow isn't a new language to learn; it's a few files in a directory you own.
+
+### You don't pay for the same history twice
+
+Most automation assistants are one session that never ends, and every turn resends the entire history to the model — so they get slower and more expensive the longer they run. Fidere does the opposite:
+
+- **One session per task, thrown away when it finishes.** Tasks hand off a few hundred words of summary, not a whole transcript.
+- **Steps that don't need judgement never reach the model.** Fetching, converting, verifying and notifying are scripts: 0 tokens.
+- **Cheap models decide, expensive models do.** Routing, summarising and formatting run on a light model; only hard work gets upgraded.
+- **Every task has a budget ceiling.** Go over it and the task stops, with what it reached and what it spent written to the ledger.
+
+### "Done" is not something the model gets to say
+
+Every task has an executable check; a non-zero exit code means it isn't done. Failures escalate in three steps: retry once on the same model → retry once on a stronger one → notify you and stop. It will not quietly grind until morning. A rerun can't duplicate a side effect (two notifications, two orders). Each task's session, commands, cost and result are all kept, so a bad run can be replayed instead of guessed at.
+
+### Costs come from the real endpoint
+
+Every reply carries its token usage and the vendor's own price for the endpoint that was actually called — DeepSeek's peak/off-peak rates, OpenRouter's per-token price, Zhipu, Moonshot, Aliyun and Anthropic's published pages — not a static rate card. Proxies and your own gateways are priced from the cost you configured for them. [How each endpoint is priced →](docs/pricing.md)
+
+### It never swaps in an expensive model behind your back
+
+New sessions start on a model you can see and change. If a reopened session had to switch models, that is announced above the transcript — the substitute can be several times more expensive, and that is not something to leave in a log file.
+
+## Features
+
+### Conversation: say whatever is on your mind
+
+- **Continuous sessions** — keep talking; when context fills up it is summarised automatically instead of the agent forgetting where it was.
+- **Notes you can open** — ideas, conclusions and to-dos are written to Markdown you can edit and search, not a black box.
+- **Live streaming** — thinking and tool calls stream in live, fold when a reply finishes, and reopen per reply.
+- **Timeline jump-back** — the timeline on the right jumps to an earlier prompt in one click; reading history doesn't pull you to the bottom.
+- **Branching edits and recovery** — edit an earlier message and resend it on a new branch; copy replies, retry a rejected prompt, recover after a dropped stream.
+- **Session and model management** — manage sessions, switch models, set the model new sessions start on, attach images and files.
+- **Seven interface languages** — English, 简体中文, 繁體中文 (台灣 / 香港), 日本語, 한국어 and Русский.
+- **Command palette** — one `/` palette for commands, models, skills and prompt templates ([shortcuts](#keyboard-shortcuts)).
+- **Keep a Mac awake** — optional `caffeinate` assertion during long tasks.
+
+### Tasks: handled while you're away
+
+- **Schedules** — every N minutes, daily at a time, or on weekdays only.
+- **Hard budget** — it stops rather than burning quietly.
+- **Executable check** — the model saying "done" is a hint, not a conclusion.
+- **Escalation and notification** — same model → stronger model → tell you and stop.
+- **One run per scheduled moment** — plus a stable `FIDERE_RUN_KEY` the task can use to dedupe its own side effects.
+- **Ledger and daily receipt** — what ran, what passed, what it cost.
+- **Catch-up runs** — missed tasks are caught up after a reboot or a sleep, and the receipt says how late they were.
+
+### Workflows: one page of instructions and a few scripts
+
+No flowcharts, no new syntax, no orchestration engine. A workflow is a directory:
+
+```text
+workflows/finance-daily/
+├── SKILL.md       ← instructions for the model, in prose
+├── fetch.mjs      ← the deterministic part as a script: 0 tokens
+└── verify.mjs     ← the check; exit 0 means done
+```
+
+A small frontmatter block at the top of `SKILL.md` is read by Fidere's scheduler; the body is read by the model:
+
+```markdown
+---
+name: finance-daily
+description: Summarise the financial news every morning as a short briefing.
+schedule: daily 08:00
+budget: ¥0.4
+verify: node verify.mjs
+notify: echo "$FIDERE_TASK ok=$FIDERE_TASK_OK" >> notify.log   # any shell command
+tools: read,write,bash
+---
+
+# Daily financial briefing
+
+1. Run `node fetch.mjs` first (don't write your own curl). Output: `out/raw.json`
+2. Read `out/raw.json` and pick the 5 items most likely to move the index.
+   Skip small single-company stories.
+3. Write `out/digest.md`: two sentences per item, then a "what to watch today" note.
+4. Run `node verify.mjs` to check your own work.
+
+Never invent numbers. If it isn't in `raw.json`, it doesn't go in the file.
+```
+
+Three layers, one job each: **frontmatter for the code** (when, how much, how to verify, who to notify), **the body for the model** (how, what matters, what not to do), **the scripts for the machine** (the deterministic work). Domain content lives entirely in your own directory — Fidere assumes nothing about it.
+
+The format is standard [Agent Skills](https://agentskills.io/specification), so a skill you already have can be dropped into `workflows/` and put on a schedule without being rewritten.
+
+### The safety boundary for unattended work
+
+When you're chatting you see a mistake as it happens; when nobody is watching, a mistake runs all night. So this isn't solved with a prompt asking the model to behave — it's solved with hard boundaries:
+
+- **Permission tiers:** read-only / write only to a designated directory / run any command. The first two are the default; the third has to be turned on explicitly
+- **Dangerous actions blocked in the tool layer:** deletion, force-push, uploads to external hosts and edits to credential files are refused and logged, not left to the model's judgement
+- **A locked working directory:** a task works inside its own throwaway directory and is read-only outside it
+- **Everything on record:** sessions, commands, cost and results are all persisted, so a run can be replayed
+
+Fidere listens on `127.0.0.1`, is single-user, and accepts one access token. It is meant to be run by you — or by each person for themselves — not as a multi-tenant platform.
+
+## Quick start
+
+### Requirements
+
+- Node.js **22.19+**
+- An API key from a supported provider (Anthropic, OpenAI, Google, DeepSeek, OpenRouter, Moonshot, MiniMax, xAI, Groq, Mistral, and others)
+- macOS, Linux or Windows. Only two things are macOS-specific: the optional sleep assertion (`npm run start:awake`) and `caffeinate` during long tasks. Everything else runs anywhere Node runs.
+
+### 1. Clone and install
+
+```bash
+git clone https://github.com/sean-cc/fidere.git
+cd fidere
+npm install --ignore-scripts
+npm run setup
+```
+
+`--ignore-scripts` skips npm lifecycle scripts, so nothing is executed at install time — Fidere doesn't need them. `npm run setup` asks you to choose a provider and enter its API key, and saves it to `~/.pi/agent/auth.json`. **You do not need to install the pi CLI**: it comes in as a normal dependency.
+
+### 2. Start the server
+
+```bash
+npm start
+```
+
+### 3. Open and sign in
+
+Open <http://localhost:3000> and paste the access token printed on startup. The token is also stored in `~/.pi/agent/fidere-token` (mode `0600`). The session cookie lasts 30 days.
+
+### 4. Choose a model
+
+Pick one from the model selector in the lower-left corner. If you don't, Fidere uses the saved default, then its own recommendation (see [FAQ](#faq)), then pi's per-provider fallback.
+
+That's it — you can chat now, or write your first workflow under `workflows/`.
+
+## Installation and configuration
+
+The quick start above covers the recommended path. The rest is optional.
+
+### Update checks
+
+On each start `npm start` asks npm whether a newer pi is published. In an interactive terminal it asks whether to update; choosing yes installs it before starting the server. In a non-interactive environment it only prints the available version and starts normally. Set `FIDERE_SDK_UPDATE=off` to skip the check, or `auto` to update without asking.
+
+### Use an environment variable instead of `npm run setup`
+
+```bash
+export ANTHROPIC_API_KEY=sk-ant-...
+npm start
+```
+
+`OPENAI_API_KEY`, `GEMINI_API_KEY`, `DEEPSEEK_API_KEY` and the other provider environment variables work too. No pi CLI is required.
+
+### Port and host
+
+```bash
+PORT=8080 npm start          # default 3000
+HOST=0.0.0.0 npm start       # trusted networks only, see below
+```
+
+### Access control
+
+Every API route needs an access token: it is read from `FIDERE_TOKEN`, or generated on first start into `~/.pi/agent/fidere-token`. Sign in by opening `/#token=<token>` or pasting it into the login overlay — the fragment never reaches the server or the proxy log. State-changing requests also need a double-submit CSRF token, which the UI sends automatically. [All access-control options →](docs/access-control.md)
+
+The server listens on `127.0.0.1` by default. Do not expose it directly to the internet; use a reverse proxy with TLS or a private tunnel.
 
 ## Keyboard shortcuts
 
@@ -42,59 +194,35 @@ Fidere is a small agent workspace that runs in your browser. It is built on the 
 | `Esc` | Close the command palette or the resume-session dialog |
 | `↑` / `↓`, `Home` / `End` | Jump between earlier prompts when the timeline on the right has focus |
 
-## Requirements
+## FAQ
 
-- Node.js **22.19+**
-- An API key from a supported provider (Anthropic, OpenAI, Google, DeepSeek, OpenRouter, Moonshot, MiniMax, xAI, Groq, Mistral, and others)
-
-## Install and run
-
-```bash
-git clone https://github.com/sean-cc/fidere.git
-cd fidere
-npm install --ignore-scripts
-npm run setup
-npm start
-```
-
-Open <http://localhost:3000> and sign in with the access token printed on startup (it is also stored in `~/.pi/agent/fidere-token`). The session cookie lasts 30 days; see **Access control** below for the full list of options.
-
-On each start, `npm start` asks npm whether a newer pi SDK is published. In an interactive terminal it asks whether to update; choosing yes installs the new SDK before starting the server. In a non-interactive environment it only prints the available version and starts normally. Set `FIDERE_SDK_UPDATE=off` to skip the check, or `FIDERE_SDK_UPDATE=auto` to update without asking.
-
-`npm run setup` asks you to choose a provider and enter its API key. It only needs the dependencies installed with Fidere — **you do not need to install the pi CLI**. The key is saved to `~/.pi/agent/auth.json`.
-
-After starting, choose a model from the model selector in the lower-left corner. If you do not choose one, Fidere uses the saved default, then its own recommendation (see below), then the SDK's per-provider fallback.
-
-### Use an environment variable instead
-
-If you prefer not to use the interactive setup:
-
-```bash
-export ANTHROPIC_API_KEY=sk-ant-...
-npm start
-```
-
-`OPENAI_API_KEY`, `GEMINI_API_KEY`, `DEEPSEEK_API_KEY` and the other provider environment variables work too. No pi CLI is required.
-
-Custom port:
-
-```bash
-PORT=8080 npm start
-```
-
-## Notes
-
-- **Prices:** Fidere prices each model by the endpoint it is actually called through. Models on `api.deepseek.com` use DeepSeek's official peak/off-peak page in the matching currency (Chinese page/CNY for a `zh` locale, English page/USD otherwise; override with `FIDERE_PRICE_CURRENCY=CNY|USD`); models on `openrouter.ai` use OpenRouter's official per-token pricing; models on `open.bigmodel.cn` use Zhipu's GLM pricing docs (CNY); models on `api.anthropic.com`, `api.moonshot.cn`, `dashscope.aliyuncs.com` and `router.huggingface.co` use their official price pages/APIs as well. Every other endpoint uses the `cost` you configured for that provider in `models.json` (proxies and gateways keep their own price), with the SDK's bundled price as the last fallback. Prices keep the vendor's currency (CNY for DeepSeek in a zh locale, GLM, Moonshot and Aliyun; USD for OpenRouter, Anthropic and HuggingFace, and DeepSeek outside a zh locale); the CNY tooltip for USD prices is an estimate at 7.2 USD/CNY (`localStorage.setItem('fidere-usd-cny', '7.30')`). Checks start as the server boots; failed checks keep the previous cache, models missing from the latest vendor list keep their last official price, and only when neither exists does the SDK price apply. The cache is `~/.pi/agent/fidere-prices.json`; `FIDERE_PRICES=off` disables vendor fetching. Status: `GET /api/prices`.
+- **Where do the prices come from?** Each model is priced by the endpoint it was actually called through, in the vendor's own currency: DeepSeek's official peak/off-peak rates, OpenRouter's per-token price, Zhipu's CNY pages, and the published pages/APIs for Anthropic, Moonshot, Aliyun and Hugging Face. Other endpoints use the `cost` you configured in `models.json`, with pi's bundled price as the last fallback. Full rules, currency overrides and the cache: [docs/pricing.md](docs/pricing.md).
 - **No models?** Run `npm run setup` or set a provider environment variable, then restart the server.
-- **Which model do new sessions start on?** `defaultProvider`/`defaultModel` from `~/.pi/agent/settings.json` first, then Fidere's own recommendation table (currently DeepSeek → `deepseek-flash`), then the SDK's built-in per-provider table. `npm run setup` writes the recommended model into settings, and **set default** on any row of the model picker changes it later; the **default** badge marks what new sessions will use. That override exists because the SDK table starts DeepSeek on `deepseek-v4-pro` — 4.4x the input price of `deepseek-flash` and text-only — which is a costly surprise on a fresh install.
-- **Access control:** every API route needs an access token. It is read from `FIDERE_TOKEN`, or generated on first start into `~/.pi/agent/fidere-token` (mode 0600); the path is printed at startup. Sign in once by opening `/#token=<token>` or pasting it into the login overlay — the fragment never reaches the server or the proxy log. The session cookie is `HttpOnly`, `SameSite=Strict`, and lasts 30 days (`FIDERE_SESSION_MAX_AGE`, seconds). State-changing requests also need a double-submit CSRF token that the UI sends automatically; scripts may send `Authorization: Bearer <token>` instead. `FIDERE_COOKIE_SECURE=auto|on|off` controls the `Secure` flag (default: follow `X-Forwarded-Proto`). `FIDERE_AUTH=off` disables all of it — only for a machine nobody else can reach.
-- **Remote access:** the server listens on `127.0.0.1` by default. Do not expose it directly to the internet. Use a reverse proxy with TLS, or a private tunnel. `HOST=0.0.0.0` is only for trusted networks.
-- **Mac sleep:** the server can hold a `caffeinate` assertion during active tasks. Closing the lid still sleeps unless the Mac is in clamshell mode; for unattended long tasks, use an always-on machine.
+- **Which model do new sessions start on?** `defaultProvider`/`defaultModel` from `~/.pi/agent/settings.json` first, then Fidere's own recommendation table (currently DeepSeek → `deepseek-flash`), then pi's built-in per-provider table. `npm run setup` writes the recommended model into settings, and **set default** on any row of the model picker changes it later. That override exists because pi's table starts DeepSeek on `deepseek-v4-pro` — 4.4x the input price of `deepseek-flash` and text-only — which is a costly surprise on a fresh install.
+- **Does closing the lid stop tasks?** The server can hold a `caffeinate` assertion during active tasks, but closing the lid still sleeps unless the Mac is in clamshell mode. For real 24/7 work, use an always-on machine.
 - **Where are keys stored?** `~/.pi/agent/auth.json`. API keys are never written to this repository.
 
 ## Development
 
-See [DEVELOPMENT.md](DEVELOPMENT.md) for architecture, tests, API endpoints and SDK upgrade notes.
+```bash
+npm test          # unit tests: prices, markdown, default models, SDK check, daemon
+npm run smoke     # headless Chrome UI smoke test (needs Chrome/Chromium)
+npm run dev       # start with node --watch
+npm run daemon    # run the scheduler on its own (--list, --run <name>, --once)
+```
+
+Architecture, API endpoints, localization and pi upgrade notes live in [DEVELOPMENT.md](DEVELOPMENT.md).
+
+### Contributing
+
+Contributions are welcome. A few things that make a PR easy to merge:
+
+1. Open an issue first for anything bigger than a bug fix, so the approach can be agreed on before you write it.
+2. Keep it plain: no frontend framework, no bundler, no new runtime dependency unless there's no way around it.
+3. Run `npm test` before pushing; `npm run smoke` if you touched the UI.
+4. Say in the PR what you changed and how you verified it — a screenshot or a test name is enough.
+
+UI strings go in `public/i18n.js`, and they need all seven locales (English, 简体中文, 繁體中文 台灣/香港, 日本語, 한국어, Русский) or the smoke test will fail.
 
 ## License
 

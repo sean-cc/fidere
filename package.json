@@ -14,6 +14,7 @@
     "public/",
     "scripts/start.mjs",
     "scripts/setup.mjs",
+    "docs/*.md",
     "docs/screenshot-chat.jpg",
     "docs/screenshot-models.jpg",
     "DEVELOPMENT.md"

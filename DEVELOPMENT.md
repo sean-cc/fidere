@@ -69,6 +69,11 @@ still line up:
 node _workspace/tools/check-readmes.mjs
 ```
 
+Long reference material lives in `docs/` rather than in the README: `docs/pricing.md`
+(how each endpoint's price is resolved) and `docs/access-control.md` (token, cookie,
+CSRF and remote-access options). Those stay English on purpose, like this file; the
+README's FAQ keeps a short summary and links to them.
+
 ## Project Layout
 
 ```text
