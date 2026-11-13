@@ -24,11 +24,13 @@ npm install --ignore-scripts
 | `npm run dev` | Same check, then start with `node --watch` |
 | `npm run setup` | Interactive provider/API-key setup |
 | `npm run start:awake` | macOS: keep the whole server awake |
-| `npm run smoke` | Headless Chrome UI smoke test (55 checks) |
+| `npm run smoke` | Headless Chrome UI smoke test (59 checks) |
 | `npm run test:prices` | Unit tests for the official price catalog and re-pricing |
 | `npm run test:markdown` | Unit tests for the hand-rolled table renderer |
 | `npm run test:defaults` | Unit tests for the default-model policy |
 | `npm run test:sdk` | Unit tests for the startup SDK version comparison |
+| `npm run daemon` | Run the scheduler on its own (`--list`, `--run <name>`, `--once`) |
+| `npm run test:daemon` | Unit tests for frontmatter, schedules, budgets and the ledger summary |
 
 ## Localization
 
@@ -74,11 +76,14 @@ Long reference material lives in `docs/` rather than in the README: `docs/pricin
 CSRF and remote-access options). Those stay English on purpose, like this file; the
 README's FAQ keeps a short summary and links to them.
 
+
 ## Project Layout
 
 ```text
 fidere/
 ├── server.js          # HTTP server, pi SDK integration, SSE, sessions
+├── daemon.js          # Scheduler: tick, catch-up, budget, ledger, notify
+├── runner.js          # Runs one workflow in a pi child process
 ├── prices.js          # Endpoint-based vendor prices, cache and re-pricing
 ├── default-models.js  # Default-model policy for new sessions
 ├── scripts/
@@ -99,6 +104,7 @@ fidere/
 │   ├── util.js        # Formatting helpers
 │   ├── i18n.js        # Translation tables, t(), locale picker plumbing
 │   └── style.css      # Theme and layout
+├── workflows/         # One directory per workflow: SKILL.md + scripts
 ├── docs/              # README screenshots
 ├── README.md          # User docs; en, zh-CN, zh-TW, zh-HK, ja, ko, ru
 ├── LICENSE
@@ -118,6 +124,147 @@ fidere/
 - Reopening a session whose recorded model is gone makes the SDK silently substitute another one. `openSession()` keeps the SDK's `modelFallbackMessage` on the active-session entry, `GET /api/sessions/:id` returns it, and the UI shows it above the transcript once per session per page load — the substitute can be several times more expensive, so it must not only live in the sidebar.
 - The model of a new session is decided in this order: `defaultProvider`/`defaultModel` from `~/.pi/agent/settings.json`, then `default-models.js`, then the SDK's own `defaultModelPerProvider` table. The override exists because the SDK table picks `deepseek-v4-pro` — 4.4x the input price of `deepseek-flash` and text-only — for a fresh install with no saved default. `npm run setup` writes the picked model into settings.json, `POST /api/models/default` does the same from the model picker ("set default"), and `/api/models` reports the resulting choice as `defaultModel` with its `source` (`settings` or `recommended`).
 
+## Scheduled Tasks
+
+A workflow is a directory under `workflows/` containing a `SKILL.md`. The
+frontmatter is read by Fidere; the body is read by the model.
+
+| Field | Meaning |
+|-------|---------|
+| `name` | Display name; defaults to the directory name |
+| `description` | Shown in the UI and in `/api/tasks` |
+| `schedule` | `every 15m`, `every 2h`, `daily 08:00`, `weekdays 08:00`. Omit for manual-only |
+| `budget` | Cost ceiling. `¥0.4` / `CNY 0.4` is converted at `FIDERE_USD_CNY` (default 7.2); a bare number is USD, matching the unit in `models.json` |
+| `verify` | A shell command; exit 0 is the only definition of success |
+| `notify` | A shell command run after the task ends, with `FIDERE_TASK`, `FIDERE_TASK_OK`, `FIDERE_TASK_REASON`, `FIDERE_TASK_COST_USD` and `FIDERE_TASK_COST_CNY` in the environment |
+| `tools` | Comma-separated allowlist passed to the pi CLI |
+| `model` | `provider/model` for this workflow; defaults to the saved default model |
+| `escalate` | `provider/model` to try after two failures |
+| `timeout` | Seconds before the run is killed |
+| `enabled` | `false` skips the workflow entirely |
+
+### Why a child process
+
+Each run spawns the pi CLI (`--mode json`) instead of calling the SDK in
+process. That is what makes the failure modes survivable: a runaway bash command
+or a hung model request is killed with a signal, a crashed task cannot corrupt
+the server, and every limit (`--tools`, `--no-skills`, `--no-mcp`,
+`--no-context-files`) is a command-line flag rather than code. The CLI ships
+inside Fidere's only dependency, so nothing extra needs installing.
+
+The cost is one process per run and a few hundred milliseconds of startup, which
+is irrelevant for a task that fires once a day.
+
+### Scheduling semantics
+
+- The tick is aligned to the next whole minute on every iteration
+  (`60_000 - Date.now() % 60_000`). A plain `setInterval` drifts, and a drifted
+  tick silently turns "daily at 08:00" into "08:00:47".
+- State stores `lastDue` — the moment the task *should* have run — not the moment
+  it did. Each tick recomputes the most recent trigger at or before now. A task
+  missed because the machine slept or the process was restarted is therefore
+  still due, and the ledger records `lateMs`.
+- A task more than `FIDERE_CATCH_UP_MS` late (default 6 hours) is skipped and
+  logged as `skip` instead of running: replaying a week of daily briefings back
+  to back costs money and helps nobody.
+- Tasks run one at a time. Concurrency would need a lock per external service
+  (mail, trading, image APIs) and that is a problem for the workflow, not the
+  scheduler.
+
+### Budget, retries and verification
+
+- The budget covers the whole task, retries included. Each attempt receives the
+  *remaining* budget, and a task that runs out skips further retries — retrying
+  an over-budget run only spends the budget again.
+- Failures escalate: same model, same model again, then `escalate` if configured.
+  Two identical attempts is the point where a different answer stops being
+  likely.
+- Exit code 0 from `verify` is the only success signal. The model's own claim
+  that it finished is never consulted.
+- Each attempt receives `FIDERE_RUN_KEY` (`<workflow>:<dueAt>`) in its
+  environment. It is stable across retries and reruns of the same scheduled
+  moment, so a workflow that places an order or sends a mail can dedupe on it
+  instead of trusting the scheduler to never repeat itself.
+- Every run gets its own directory under `.fidere/runs/<workflow>/<timestamp>/`,
+  seeded with a copy of the workflow directory. The task cannot edit the
+  definition it ran from, and two runs never share files.
+
+### Ledger and receipt
+
+`.fidere/ledger.jsonl` is append-only: one `run` line per finished task, one
+`skip` line per catch-up refusal, one `receipt` line per day. `jq` reads it
+without any code from us. The daily receipt is written after 23:00 for the
+previous day, so "is it still working?" is a line in a file rather than a log
+archaeology exercise.
+
+### Environment
+
+| Variable | Default | Meaning |
+|----------|---------|---------|
+| `FIDERE_DAEMON` | on | `off` starts the server without the scheduler |
+| `FIDERE_TASK_BUDGET` | `0.30` | Default budget when a workflow omits `budget` (USD) |
+| `FIDERE_TASK_TIMEOUT` | `1200000` | Default run timeout in ms |
+| `FIDERE_CATCH_UP_MS` | `21600000` | How late a missed task may be and still run |
+| `FIDERE_TASK_MODEL` | settings.json default | `provider/model` for workflows that name none |
+| `FIDERE_TASK_THINKING` | `low` | Thinking level for scheduled runs |
+| `FIDERE_USD_CNY` | `7.2` | Rate used for `¥` budgets and the CNY column |
+
+## Running on a Server
+
+The daemon does not care whether a browser is open, so the usual split is: run
+Fidere on the always-on machine, open the UI from a laptop when you want to look.
+Four things need attention on a fresh server.
+
+**1. Node and dependencies.** Node 22.19+, then `npm install --ignore-scripts`.
+Nothing else is required — the pi CLI comes with the dependency.
+
+**2. Credentials live outside the repo.** Copy the three files from your
+development machine; `~/.pi/agent/auth.json` is the one that matters, plus
+`models.json` and `settings.json` if you customised them.
+
+```bash
+scp ~/.pi/agent/{auth.json,models.json,settings.json} server:~/.pi/agent/
+ssh server chmod 600 ~/.pi/agent/auth.json
+```
+
+**3. Timezone.** Schedules are wall-clock times in the machine's local zone. A
+server installed with UTC will run `daily 08:00` at 16:00 Beijing time. The
+daemon prints its clock at startup and warns when it is UTC; set `TZ` explicitly
+rather than relying on the default:
+
+```bash
+TZ=Asia/Shanghai node server.js
+```
+
+**4. Supervision.** The state lives in `.fidere/` (gitignored), so a restart only
+costs the task that was mid-flight — the next tick catches up from `lastDue`.
+A minimal systemd unit:
+
+```ini
+[Unit]
+Description=Fidere
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/srv/fidere
+Environment=TZ=Asia/Shanghai
+Environment=FIDERE_SDK_UPDATE=off
+ExecStart=/usr/bin/node server.js
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+```
+
+`FIDERE_SDK_UPDATE=off` skips the npm version check that `npm start` performs;
+update the dependency deliberately instead of on every restart.
+
+The server still listens on `127.0.0.1`. Reach it through a TLS reverse proxy or
+a private tunnel; do not bind `0.0.0.0` on a public host. `caffeinate` is macOS
+only and is skipped on Linux.
+
 ## API Endpoints
 
 | Method | Path | Description |
@@ -126,6 +273,9 @@ fidere/
 | POST | `/api/logout` | Clear both cookies |
 | GET | `/api/auth` | Session probe used by the UI before its first data call |
 | GET | `/api/health` | Health check |
+| GET | `/api/tasks` | Workflows, next run time, and today's summary |
+| POST | `/api/tasks/:name/run` | Start a workflow now (returns 202) |
+| GET | `/api/tasks/:name/runs` | Last 50 ledger records for one workflow |
 | GET | `/api/prices` | Official price catalog status (last check, model count, errors) |
 | GET | `/api/models` | Available models, grouped by provider, plus `defaultModel` |
 | POST | `/api/models/default` | Save `{provider, modelId}` as the default for new sessions |

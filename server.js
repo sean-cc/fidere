@@ -15,6 +15,8 @@ import {
   resolveUsageCost,
 } from './prices.js';
 import { chooseInitialModel } from './default-models.js';
+import { createDaemon, loadWorkflows } from './daemon.js';
+import { summarizeDay } from './runner.js';
 
 const {
   ModelRegistry,
@@ -281,6 +283,35 @@ function loadAccessToken() {
 }
 
 const ACCESS = AUTH_DISABLED ? { token: '', source: 'disabled' } : loadAccessToken();
+
+// ── Scheduled tasks ─────────────────────────────────────────────────────────
+// The daemon reads ./workflows and keeps its state under .fidere/. It runs in
+// this process so there is no second service to start, but it never depends on
+// the UI: closing the browser leaves the schedule alone.
+const DATA_DIR = path.resolve(CWD, '.fidere');
+const WORKFLOWS_DIR = path.resolve(CWD, 'workflows');
+const LEDGER_PATH = path.join(DATA_DIR, 'ledger.jsonl');
+const DAEMON_ENABLED = process.env.FIDERE_DAEMON !== 'off';
+
+// A clone already has ./workflows. An npm/npx install runs from the user's own
+// directory, so seed the sample there once instead of leaving the daemon with
+// nothing to watch and no hint about what a workflow looks like.
+function ensureWorkflowsDir() {
+  if (fs.existsSync(WORKFLOWS_DIR)) return;
+  const shipped = path.join(__dirname, 'workflows');
+  try {
+    fs.mkdirSync(WORKFLOWS_DIR, { recursive: true });
+    for (const name of fs.readdirSync(shipped)) {
+      fs.cpSync(path.join(shipped, name), path.join(WORKFLOWS_DIR, name), { recursive: true });
+    }
+    console.log(`  Created ${WORKFLOWS_DIR} with the sample workflow.`);
+  } catch (err) {
+    console.warn(`  ⚠️  Could not create ${WORKFLOWS_DIR}: ${err.message}`);
+  }
+}
+ensureWorkflowsDir();
+
+const daemon = createDaemon({ root: CWD });
 const SESSION_VALUE = ACCESS.token
   ? createHmac('sha256', ACCESS.token).update('fidere-session-v1').digest('base64url')
   : '';
@@ -756,7 +787,56 @@ const server = http.createServer(async (req, res) => {
       status: 'ok',
       modelsAvailable: available.length,
       activeSessions: activeSessions.size,
+      workflows: daemon.status().workflows.length,
     });
+    return;
+  }
+
+  // ── API: Scheduled tasks ─────────────────────────────────────────────
+  // The UI reads everything from here and never talks to the daemon directly,
+  // so the same state is visible whether the page is open or not.
+  if (p === '/api/tasks' && req.method === 'GET') {
+    const status = daemon.status();
+    const today = new Date().toISOString().slice(0, 10);
+    sendJSON(res, 200, { ...status, enabled: DAEMON_ENABLED, today: summarizeDay(LEDGER_PATH, today) });
+    return;
+  }
+
+  const taskRunMatch = p.match(/^\/api\/tasks\/([^/]+)\/run$/);
+  if (taskRunMatch && req.method === 'POST') {
+    const name = decodeURIComponent(taskRunMatch[1]);
+    const entry = loadWorkflows(WORKFLOWS_DIR).find((w) => w.name === name);
+    if (!entry) {
+      sendJSON(res, 404, { error: `no workflow named ${name}` });
+      return;
+    }
+    if (daemon.status().running) {
+      sendJSON(res, 409, { error: 'a task is already running' });
+      return;
+    }
+    // Answer immediately: a task can take minutes, and holding the request open
+    // would turn a dropped browser tab into a failed run.
+    void daemon.execute(entry, Date.now()).catch((err) => {
+      console.warn(`  ⚠️  task ${name} failed: ${err.message}`);
+    });
+    sendJSON(res, 202, { started: name });
+    return;
+  }
+
+  const taskLogMatch = p.match(/^\/api\/tasks\/([^/]+)\/runs$/);
+  if (taskLogMatch && req.method === 'GET') {
+    const name = decodeURIComponent(taskLogMatch[1]);
+    const runs = [];
+    try {
+      for (const line of fs.readFileSync(LEDGER_PATH, 'utf8').split('\n')) {
+        if (!line.trim()) continue;
+        try {
+          const row = JSON.parse(line);
+          if (row.name === name) runs.push(row);
+        } catch { /* skip a truncated line rather than failing the request */ }
+      }
+    } catch { /* no ledger yet */ }
+    sendJSON(res, 200, { name, runs: runs.slice(-50).reverse() });
     return;
   }
 
@@ -1495,6 +1575,15 @@ server.listen(PORT, HOST, () => {
   console.log(`\n  🚀 Fidere running at http://${displayHost}:${PORT}\n`);
   console.log(`  Listening on: ${HOST}:${PORT}`);
   console.log(`  Sessions directory: ${CWD}\n`);
+
+  if (DAEMON_ENABLED) {
+    daemon.start();
+    const scheduled = loadWorkflows(WORKFLOWS_DIR).filter((w) => w.schedule).length;
+    console.log(`  Workflows: ${WORKFLOWS_DIR} (${scheduled} scheduled)`);
+    console.log(`  Ledger: ${LEDGER_PATH}\n`);
+  } else {
+    console.log('  Scheduled tasks are disabled (FIDERE_DAEMON=off).\n');
+  }
 
   if (AUTH_DISABLED) {
     console.warn('  ⚠️  Authentication is disabled (FIDERE_AUTH=off). Do not expose this server.\n');
