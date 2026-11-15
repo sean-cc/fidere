@@ -45,6 +45,9 @@ jobs:
       - name: default models
         run: npm run test:defaults
 
+      - name: image budget
+        run: npm run test:images
+
       - name: launcher
         run: npm run test:sdk
 

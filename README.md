@@ -28,6 +28,7 @@ Most automation assistants are one session that never ends, and every turn resen
 
 - **One session per task, thrown away when it finishes.** Tasks hand off a few hundred words of summary, not a whole transcript.
 - **Steps that don't need judgement never reach the model.** Fetching, converting, verifying and notifying are scripts: 0 tokens.
+- **Screenshots are shrunk before they join the conversation.** An agent that reads a 750 KB screenshot keeps paying for it on every later turn — enough of them and the provider starts refusing the request. Images read by a tool are re-encoded to a byte budget on the way in, so nobody has to remember to do it.
 - **Cheap models decide, expensive models do.** Routing, summarising and formatting run on a light model; only hard work gets upgraded.
 - **Every task has a budget ceiling.** Go over it and the task stops, with what it reached and what it spent written to the ledger.
 

@@ -17,12 +17,15 @@ import {
 import { chooseInitialModel } from './default-models.js';
 import { createDaemon, loadWorkflows } from './daemon.js';
 import { summarizeDay } from './runner.js';
+import { shrinkToolImages } from './images.js';
 
 const {
+  DefaultResourceLoader,
   ModelRegistry,
   SessionManager,
   SettingsManager,
   createAgentSession,
+  getAgentDir,
   resizeImage,
 } = piSdk;
 
@@ -136,7 +139,37 @@ function refreshModelRegistry() {
   return modelRegistry;
 }
 
-function sessionOptions(sessionManager) {
+// The loader is the SDK's own discovery (project skills, extensions, prompts)
+// plus one inline extension: `images.js` re-encodes any screenshot an agent
+// reads down to a byte budget, so a day of UI debugging cannot grow the request
+// body until the provider refuses it. Built once; discovery does not depend on
+// which session asked for it.
+let agentResourceLoader;
+let agentResourceLoaderDone = false;
+
+async function resourceLoaderForSession() {
+  if (agentResourceLoaderDone) return agentResourceLoader;
+  agentResourceLoaderDone = true;
+  const agentDir = getAgentDir();
+  try {
+    const loader = new DefaultResourceLoader({
+      cwd: CWD,
+      agentDir,
+      settingsManager: SettingsManager.create(CWD, agentDir),
+      extensionFactories: [{ name: 'fidere-images', factory: shrinkToolImages }],
+    });
+    await loader.reload();
+    agentResourceLoader = loader;
+  } catch (err) {
+    // Losing the image budget is bad; losing every session because of it is
+    // worse. Fall back to the SDK's default loader.
+    console.warn(`Could not load agent extensions: ${err.message}`);
+    agentResourceLoader = undefined;
+  }
+  return agentResourceLoader;
+}
+
+async function sessionOptions(sessionManager) {
   const options = { sessionManager };
   if (modelRuntime) {
     options.modelRuntime = modelRuntime;
@@ -144,6 +177,8 @@ function sessionOptions(sessionManager) {
     options.authStorage = authStorage;
     options.modelRegistry = modelRegistry;
   }
+  const loader = await resourceLoaderForSession();
+  if (loader) options.resourceLoader = loader;
   return options;
 }
 
@@ -694,7 +729,7 @@ async function getOrCreateSession(sessionId) {
   // Create new
   const sm = SessionManager.create(CWD);
   const model = await initialSessionModel();
-  const { session } = await createAgentSession({ ...sessionOptions(sm), ...(model ? { model } : {}) });
+  const { session } = await createAgentSession({ ...(await sessionOptions(sm)), ...(model ? { model } : {}) });
   const id = session.sessionId;
   activeSessions.set(id, { session, sessionManager: sm, modelFallbackMessage: null });
   return activeSessions.get(id);
@@ -706,7 +741,7 @@ async function getOrCreateSession(sessionId) {
 // must be able to show it instead of letting the switch go unnoticed.
 async function openSession(sessionPath) {
   const sm = SessionManager.open(sessionPath);
-  const { session, modelFallbackMessage } = await createAgentSession(sessionOptions(sm));
+  const { session, modelFallbackMessage } = await createAgentSession(await sessionOptions(sm));
   const id = session.sessionId;
   activeSessions.set(id, { session, sessionManager: sm, modelFallbackMessage: modelFallbackMessage || null });
   return { id, modelFallbackMessage };
@@ -1154,7 +1189,7 @@ const server = http.createServer(async (req, res) => {
         // Editing the first message: start a fresh session with the same model.
         const sm = SessionManager.create(CWD);
         const { session } = await createAgentSession({
-          ...sessionOptions(sm),
+          ...(await sessionOptions(sm)),
           model: entry.session.model,
         });
         sessionId = session.sessionId;
