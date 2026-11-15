@@ -91,7 +91,7 @@ const sessionModal = $('#sessionModal');
 const sessionPickerList = $('#sessionPickerList');
 const sessionSearch = $('#sessionSearch');
 
-const MAX_ATTACHMENTS = 8;
+const MAX_ATTACHMENTS = 4;
 const MAX_ATTACHMENT_BYTES = 25 * 1024 * 1024;
 
 // ── API helpers ───────────────────────────────────────────────────────────

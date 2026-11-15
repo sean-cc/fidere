@@ -38,8 +38,11 @@ const CWD = process.cwd();
 // can also reach them through the normal read/bash tools.
 const UPLOAD_DIR = path.resolve(CWD, '.fidere', 'uploads');
 const MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
-const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
-const MAX_IMAGES_PER_MESSAGE = 8;
+// What one message may carry into a request. Every turn resends these images,
+// so the ceiling is the request body, not the disk. 4 x 1 MB keeps the body
+// under ~5.5 MB even when all four go inline.
+const MAX_IMAGE_BYTES = 1024 * 1024;
+const MAX_IMAGES_PER_MESSAGE = 4;
 const TEXT_INLINE_LIMIT = 80_000;
 try {
   fs.mkdirSync(UPLOAD_DIR, { recursive: true });
@@ -1366,14 +1369,26 @@ const server = http.createServer(async (req, res) => {
     const body = await parseBody(req);
     const message = String(body.message || body.prompt || '');
     const rawImages = Array.isArray(body.images) ? body.images : [];
-    const images = rawImages.slice(0, MAX_IMAGES_PER_MESSAGE).map((img) => {
+    // Refuse loudly instead of dropping images silently: a picture that never
+    // reached the model and never said so is worse than an error.
+    if (rawImages.length > MAX_IMAGES_PER_MESSAGE) {
+      sendJSON(res, 400, { error: `At most ${MAX_IMAGES_PER_MESSAGE} images per message.` });
+      return;
+    }
+    const images = [];
+    for (const img of rawImages) {
       const data = String(img?.data || img?.source?.data || '').replace(/^data:[^;]+;base64,/, '');
       const mimeType = String(img?.mimeType || img?.source?.mediaType || '').toLowerCase();
-      if (!data || !IMAGE_MIME.has(mimeType)) return null;
+      if (!data || !IMAGE_MIME.has(mimeType)) continue;
       // Keep the request inside provider inline-image limits.
-      if (data.length > Math.ceil(MAX_IMAGE_BYTES * 4 / 3) + 1024) return null;
-      return { type: 'image', data, mimeType };
-    }).filter(Boolean);
+      if (data.length > Math.ceil(MAX_IMAGE_BYTES * 4 / 3) + 1024) {
+        sendJSON(res, 400, {
+          error: `An image is larger than ${Math.round(MAX_IMAGE_BYTES / 1024 / 1024)} MB.`,
+        });
+        return;
+      }
+      images.push({ type: 'image', data, mimeType });
+    }
 
     if (!message.trim() && images.length === 0) {
       sendJSON(res, 400, { error: 'Message is required' });
