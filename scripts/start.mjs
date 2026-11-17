@@ -112,6 +112,15 @@ function startServer(extraArgs) {
 
 async function main() {
   const args = process.argv.slice(2);
+
+  // `fidere --setup` runs the interactive key setup once and exits. It is the
+  // answer to `npm run setup` for people who installed from npm: there is no
+  // package.json script to run, and naming a path inside node_modules is a bad
+  // thing to ask of anyone.
+  if (args.includes('--setup')) {
+    return run(process.execPath, [path.join(ROOT, 'scripts', 'setup.mjs')]);
+  }
+
   const mode = (process.env.FIDERE_SDK_UPDATE || '').toLowerCase();
   const disabled = mode === 'off' || process.env.FIDERE_SKIP_SDK_UPDATE === '1';
 

@@ -133,8 +133,8 @@ Fidere 默认只监听 `127.0.0.1`、单用户、只认一个访问令牌。它�
 包已经发布到 npm，可以不克隆：
 
 ```bash
-npm install -g fidere    # 装成全局命令
-npx fidere               # 或者完全不安装，直接跑
+npm install -g @sean-cc/fidere    # 装成全局命令
+npx @sean-cc/fidere               # 或者完全不安装，直接跑
 ```
 
 想读代码、改代码就克隆下来：
@@ -146,13 +146,13 @@ npm install --ignore-scripts
 npm run setup
 ```
 
-`--ignore-scripts` 跳过 npm 的生命周期脚本，安装时什么都不执行——Fidere 也用不上它们。`npm run setup` 让你选服务商、填 API Key，保存到 `~/.pi/agent/auth.json`；如果你是用全局安装或 `npx` 跑的，改用 `npx fidere-setup`。**不需要另外安装 pi CLI**：它作为普通依赖装进来。
+`--ignore-scripts` 跳过 npm 的生命周期脚本，安装时什么都不执行——Fidere 也用不上它们。`npm run setup` 让你选服务商、填 API Key，保存到 `~/.pi/agent/auth.json`；如果你是用全局安装或 `npx` 跑的，改用 `npx @sean-cc/fidere --setup`。**不需要另外安装 pi CLI**：它作为普通依赖装进来。
 
 ### 2. 启动
 
 ```bash
 fidere        # 全局安装
-npx fidere    # 不安装直接跑
+npx @sean-cc/fidere    # 不安装直接跑
 npm start     # 在克隆目录里
 ```
 

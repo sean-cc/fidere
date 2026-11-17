@@ -132,8 +132,8 @@ Fidere는 `127.0.0.1`만 수신하고, 단일 사용자이며, 액세스 토큰 
 패키지가 npm에 공개되어 있으므로 클론은 선택 사항입니다:
 
 ```bash
-npm install -g fidere    # 전역 명령으로 설치
-npx fidere               # 또는 설치 없이 바로 실행
+npm install -g @sean-cc/fidere    # 전역 명령으로 설치
+npx @sean-cc/fidere               # 또는 설치 없이 바로 실행
 ```
 
 코드를 읽고 고치려면 클론하세요:
@@ -145,13 +145,13 @@ npm install --ignore-scripts
 npm run setup
 ```
 
-`--ignore-scripts`는 npm 라이프사이클 스크립트를 건너뛰므로 설치 시 아무것도 실행되지 않습니다(Fidere에는 필요 없습니다). `npm run setup`은 공급자를 고르고 API 키를 입력받아 `~/.pi/agent/auth.json`에 저장합니다(전역 설치나 `npx`로 실행했다면 `npx fidere-setup`을 쓰세요). **pi CLI를 따로 설치할 필요는 없습니다**: 일반 의존성으로 함께 설치됩니다.
+`--ignore-scripts`는 npm 라이프사이클 스크립트를 건너뛰므로 설치 시 아무것도 실행되지 않습니다(Fidere에는 필요 없습니다). `npm run setup`은 공급자를 고르고 API 키를 입력받아 `~/.pi/agent/auth.json`에 저장합니다(전역 설치나 `npx`로 실행했다면 `npx @sean-cc/fidere --setup`을 쓰세요). **pi CLI를 따로 설치할 필요는 없습니다**: 일반 의존성으로 함께 설치됩니다.
 
 ### 2. 서버 시작
 
 ```bash
 fidere        # 전역 설치
-npx fidere    # 설치 없이 실행
+npx @sean-cc/fidere    # 설치 없이 실행
 npm start     # 클론한 디렉터리에서
 ```
 

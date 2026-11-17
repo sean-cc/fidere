@@ -133,8 +133,8 @@ Fidere listens on `127.0.0.1`, is single-user, and accepts one access token. It 
 The package is published to npm, so a clone is optional:
 
 ```bash
-npm install -g fidere    # a global `fidere` command
-npx fidere               # or run it without installing at all
+npm install -g @sean-cc/fidere    # a global `fidere` command
+npx @sean-cc/fidere               # or run it without installing at all
 ```
 
 Or clone it, if you want to read and change the code:
@@ -146,13 +146,13 @@ npm install --ignore-scripts
 npm run setup
 ```
 
-`--ignore-scripts` skips npm lifecycle scripts, so nothing is executed at install time — Fidere doesn't need them. `npm run setup` asks you to choose a provider and enter its API key, and saves it to `~/.pi/agent/auth.json`; if you installed globally or used `npx`, run `npx fidere-setup` instead. **You do not need to install the pi CLI**: it comes in as a normal dependency.
+`--ignore-scripts` skips npm lifecycle scripts, so nothing is executed at install time — Fidere doesn't need them. `npm run setup` asks you to choose a provider and enter its API key, and saves it to `~/.pi/agent/auth.json`; if you installed globally or used `npx`, run `npx @sean-cc/fidere --setup` instead. **You do not need to install the pi CLI**: it comes in as a normal dependency.
 
 ### 2. Start the server
 
 ```bash
 fidere        # global install
-npx fidere    # without installing
+npx @sean-cc/fidere    # without installing
 npm start     # in a clone
 ```
 

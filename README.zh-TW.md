@@ -132,8 +132,8 @@ Fidere 預設只監聽 `127.0.0.1`、單使用者、只認一個存取權杖。�
 套件已發佈到 npm，可以不複製專案：
 
 ```bash
-npm install -g fidere    # 裝成全域指令
-npx fidere               # 或完全不安裝，直接執行
+npm install -g @sean-cc/fidere    # 裝成全域指令
+npx @sean-cc/fidere               # 或完全不安裝，直接執行
 ```
 
 想讀程式碼、改程式碼就複製下來：
@@ -145,13 +145,13 @@ npm install --ignore-scripts
 npm run setup
 ```
 
-`--ignore-scripts` 跳過 npm 的生命週期腳本，安裝時什麼都不執行——Fidere 也用不上它們。`npm run setup` 讓你選服務商、填 API Key，儲存到 `~/.pi/agent/auth.json`；如果你是用全域安裝或 `npx` 跑的，改用 `npx fidere-setup`。**不需要另外安裝 pi CLI**：它當作一般依賴裝進來。
+`--ignore-scripts` 跳過 npm 的生命週期腳本，安裝時什麼都不執行——Fidere 也用不上它們。`npm run setup` 讓你選服務商、填 API Key，儲存到 `~/.pi/agent/auth.json`；如果你是用全域安裝或 `npx` 跑的，改用 `npx @sean-cc/fidere --setup`。**不需要另外安裝 pi CLI**：它當作一般依賴裝進來。
 
 ### 2. 啟動
 
 ```bash
 fidere        # 全域安裝
-npx fidere    # 不安裝直接執行
+npx @sean-cc/fidere    # 不安裝直接執行
 npm start     # 在複製下來的目錄裡
 ```
 

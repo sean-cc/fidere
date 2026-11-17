@@ -132,8 +132,8 @@ Fidere は `127.0.0.1` のみをリッスンし、シングルユーザーで、
 パッケージは npm に公開済みなので、クローンは任意です：
 
 ```bash
-npm install -g fidere    # グローバルコマンドとして
-npx fidere               # またはインストールせずに実行
+npm install -g @sean-cc/fidere    # グローバルコマンドとして
+npx @sean-cc/fidere               # またはインストールせずに実行
 ```
 
 コードを読み書きしたい場合はクローンしてください：
@@ -145,13 +145,13 @@ npm install --ignore-scripts
 npm run setup
 ```
 
-`--ignore-scripts` は npm のライフサイクルスクリプトを飛ばすので、インストール時に何も実行されません（Fidere には不要です）。`npm run setup` でプロバイダーを選び API キーを入力すると、`~/.pi/agent/auth.json` に保存されます（グローバルインストールや `npx` の場合は `npx fidere-setup` を使ってください）。**pi CLI を別途インストールする必要はありません**：通常の依存関係として入ります。
+`--ignore-scripts` は npm のライフサイクルスクリプトを飛ばすので、インストール時に何も実行されません（Fidere には不要です）。`npm run setup` でプロバイダーを選び API キーを入力すると、`~/.pi/agent/auth.json` に保存されます（グローバルインストールや `npx` の場合は `npx @sean-cc/fidere --setup` を使ってください）。**pi CLI を別途インストールする必要はありません**：通常の依存関係として入ります。
 
 ### 2. 起動
 
 ```bash
 fidere        # グローバルインストール
-npx fidere    # インストールせずに実行
+npx @sean-cc/fidere    # インストールせずに実行
 npm start     # クローンしたディレクトリで
 ```
 
