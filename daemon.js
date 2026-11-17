@@ -7,9 +7,10 @@
 // correctness: a task missed because the machine slept is caught up on the next
 // tick, and the ledger records how late it was.
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
-import { appendLedger, runWorkflow, summarizeDay } from './runner.js';
+import { appendLedger, runWorkflow, shellInvocation, summarizeDay } from './runner.js';
 
 const TICK_MS = 60_000;
 // A task that is more than this late is not "caught up", it is stale: running a
@@ -166,7 +167,9 @@ function defaultModel() {
   const fromEnv = parseModel(process.env.FIDERE_TASK_MODEL);
   if (fromEnv) return { ...fromEnv, thinking: process.env.FIDERE_TASK_THINKING || 'low' };
   try {
-    const settings = JSON.parse(fs.readFileSync(path.join(process.env.HOME, '.pi/agent/settings.json'), 'utf8'));
+    // os.homedir() rather than $HOME: Windows leaves HOME unset, which made
+    // every scheduled task report "no model configured" after a working setup.
+    const settings = JSON.parse(fs.readFileSync(path.join(os.homedir(), '.pi/agent/settings.json'), 'utf8'));
     if (settings.defaultProvider && settings.defaultModel) {
       return {
         provider: settings.defaultProvider,
@@ -329,7 +332,8 @@ export function createDaemon(options = {}) {
     await new Promise((resolve) => {
       let child;
       try {
-        child = spawn(process.env.SHELL || 'sh', ['-c', command], {
+        const shell = shellInvocation(command);
+        child = spawn(shell.file, shell.args, {
           cwd: record.runDir,
           stdio: ['ignore', 'ignore', 'inherit'],
           env: {

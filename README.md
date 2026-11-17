@@ -112,7 +112,7 @@ The format is standard [Agent Skills](https://agentskills.io/specification), so 
 When you're chatting you see a mistake as it happens; when nobody is watching, a mistake runs all night. So this isn't solved with a prompt asking the model to behave — it's solved with hard boundaries:
 
 - **A real write boundary:** a task can write only to its own throwaway directory and `/tmp`; `write`, `edit` and shell redirection are refused anywhere else
-- **Dangerous actions blocked in the tool layer:** `sudo`, deleting from the filesystem root, force-push, uploads to external hosts and reads of `~/.pi/agent` are refused and written to `blocked.log`
+- **Dangerous actions blocked in the tool layer:** `sudo`, deleting from the filesystem root, force-push, uploads to external hosts, and shell commands that touch `~/.pi/agent` are refused and written to `blocked.log`
 - **Capabilities stay off by default:** leave `bash` out of `tools` when a task does not need to run commands; a task never loads your own skills, extensions or context files
 - **Everything on record:** sessions, commands, cost and results are all persisted, so a run can be replayed
 
@@ -126,7 +126,7 @@ Fidere listens on `127.0.0.1`, is single-user, and accepts one access token. It 
 
 - Node.js **22.19+**
 - An API key from a supported provider (Anthropic, OpenAI, Google, DeepSeek, OpenRouter, Moonshot, MiniMax, xAI, Groq, Mistral, and others)
-- macOS, Linux or Windows. Only two things are macOS-specific: the optional sleep assertion (`npm run start:awake`) and `caffeinate` during long tasks. Everything else runs anywhere Node runs.
+- macOS, Linux or Windows. Two things are macOS-only: the optional sleep assertion (`npm run start:awake`) and `caffeinate` during long tasks. Workflow `verify` and `notify` commands run through `sh -c` on macOS/Linux and `cmd /c` on Windows, so write them for the shell you actually have.
 
 ### 1. Install
 
@@ -146,7 +146,13 @@ npm install --ignore-scripts
 npm run setup
 ```
 
-`--ignore-scripts` skips npm lifecycle scripts, so nothing is executed at install time — Fidere doesn't need them. `npm run setup` asks you to choose a provider and enter its API key, and saves it to `~/.pi/agent/auth.json`; if you installed globally or used `npx`, run `npx @sean-cc/fidere --setup` instead. **You do not need to install the pi CLI**: it comes in as a normal dependency.
+`--ignore-scripts` skips npm lifecycle scripts, so nothing is executed at install time — Fidere doesn't need them. `npm run setup` asks you to choose a provider and enter its API key, and saves it to `~/.pi/agent/auth.json`; if you installed globally or used `npx`, run `fidere --setup` (or `npx @sean-cc/fidere --setup`) instead. **You do not need to install the pi CLI**: it comes in as a normal dependency.
+
+Three things about the global install are worth knowing before they bite:
+
+- **`fidere` is a link in `$(npm prefix -g)/bin`.** `which fidere` (PowerShell `where fidere`) must find it; on Windows that directory is `%APPDATA%\npm`. If it does not — a custom npm prefix is the usual reason — add it to `PATH`, or use the `npx` form.
+- **A system Node refuses `npm install -g` with `EACCES`.** Use `nvm`, `fnm` or `volta` rather than `sudo`: `sudo npm i -g` installs the command for root only, and the next `npm i -g` as yourself fails again.
+- **`npx` asks "Ok to proceed?" the first time.** `npx --yes @sean-cc/fidere` skips it, which matters inside scripts.
 
 ### 2. Start the server
 
@@ -156,11 +162,11 @@ npx @sean-cc/fidere    # without installing
 npm start     # in a clone
 ```
 
-Whichever directory you start it from is your **workspace**: `workflows/`, `.fidere/` and uploads are created there, and the sample workflow is copied in on the first start. Set `FIDERE_WORKSPACE=/path` to keep them somewhere else.
+Whichever directory you start it from is your **workspace**: `workflows/`, `.fidere/` and uploads are created there, and the sample workflow is copied in on the first start. Set `FIDERE_WORKSPACE=/path` to keep them somewhere else (`FIDERE_WORKSPACE=C:\path` on Windows).
 
 ### 3. Open and sign in
 
-Open <http://localhost:3000> and paste the access token printed on startup. The token is also stored in `~/.pi/agent/fidere-token` (mode `0600`). The session cookie lasts 30 days.
+Open <http://localhost:3000> and paste the access token the server prints on startup. It prints two lines you can use directly: the token value, and a `http://localhost:3000/#token=<token>` link that signs you in without typing it. The same token is stored in `~/.pi/agent/fidere-token` (mode `0600`), and `FIDERE_TOKEN` overrides both. The session cookie lasts 30 days.
 
 ### 4. Choose a model
 
@@ -174,23 +180,39 @@ The quick start above covers the recommended path. The rest is optional.
 
 ### Update checks
 
-On each start `npm start` asks npm whether a newer pi is published. In an interactive terminal it asks whether to update; choosing yes installs it before starting the server. In a non-interactive environment it only prints the available version and starts normally. Set `FIDERE_SDK_UPDATE=off` to skip the check, or `auto` to update without asking.
+On each start — `fidere`, `npx @sean-cc/fidere` or `npm start` — the launcher asks npm whether a newer pi is published. In an interactive terminal it asks whether to update; choosing yes installs it before starting the server. In a non-interactive environment it only prints the available version and starts normally. Set `FIDERE_SDK_UPDATE=off` to skip the check, or `auto` to update without asking.
 
 ### Use an environment variable instead of `npm run setup`
 
 ```bash
 export ANTHROPIC_API_KEY=sk-ant-...
-npm start
+fidere                    # or: npx @sean-cc/fidere, or npm start in a clone
 ```
 
 `OPENAI_API_KEY`, `GEMINI_API_KEY`, `DEEPSEEK_API_KEY` and the other provider environment variables work too. No pi CLI is required.
 
+On Windows the prefix differs: PowerShell `$env:ANTHROPIC_API_KEY="sk-ant-..."`, CMD `set ANTHROPIC_API_KEY=sk-ant-...` — then `fidere`.
+
+### Set up without a terminal prompt
+
+`--setup` asks two questions, which is no use in CI or over an ssh session without a tty. Answer them with environment variables instead:
+
+```bash
+FIDERE_PROVIDER=deepseek FIDERE_API_KEY=sk-... npx --yes @sean-cc/fidere --setup
+```
+
+Same result as the interactive flow: the key goes to `~/.pi/agent/auth.json` and the recommended default model to `~/.pi/agent/settings.json` (`%USERPROFILE%\.pi\agent` on Windows).
+
 ### Port and host
 
 ```bash
-PORT=8080 fidere             # default 3000 (npm start in a clone)
-HOST=0.0.0.0 fidere          # trusted networks only, see below
+PORT=8080 fidere                   # global install
+PORT=8080 npx @sean-cc/fidere      # without installing
+PORT=8080 npm start                # in a clone
+HOST=0.0.0.0 fidere                # trusted networks only, see below
 ```
+
+On Windows the prefix differs: PowerShell `$env:PORT="8080"; fidere`, CMD `set PORT=8080 && fidere`.
 
 ### Access control
 
@@ -213,7 +235,7 @@ The server listens on `127.0.0.1` by default. Do not expose it directly to the i
 ## FAQ
 
 - **Where do the prices come from?** Each model is priced by the endpoint it was actually called through, in the vendor's own currency: DeepSeek's official peak/off-peak rates, OpenRouter's per-token price, Zhipu's CNY pages, and the published pages/APIs for Anthropic, Moonshot, Aliyun and Hugging Face. Other endpoints use the `cost` you configured in `models.json`, with pi's bundled price as the last fallback. Full rules, currency overrides and the cache: [docs/pricing.md](docs/pricing.md).
-- **No models?** Run `npm run setup` or set a provider environment variable, then restart the server.
+- **No models?** Run `npm run setup` in a clone, or `fidere --setup` after a global install, or `npx @sean-cc/fidere --setup`, or set a provider environment variable — then restart the server.
 - **Which model do new sessions start on?** `defaultProvider`/`defaultModel` from `~/.pi/agent/settings.json` first, then Fidere's own recommendation table (currently DeepSeek → `deepseek-flash`), then pi's built-in per-provider table. `npm run setup` writes the recommended model into settings, and **set default** on any row of the model picker changes it later. That override exists because pi's table starts DeepSeek on `deepseek-v4-pro` — 4.4x the input price of `deepseek-flash` and text-only — which is a costly surprise on a fresh install.
 - **Does closing the lid stop tasks?** The server can hold a `caffeinate` assertion during active tasks, but closing the lid still sleeps unless the Mac is in clamshell mode. For real 24/7 work, use an always-on machine.
 - **Where are keys stored?** `~/.pi/agent/auth.json`. API keys are never written to this repository.
@@ -221,10 +243,10 @@ The server listens on `127.0.0.1` by default. Do not expose it directly to the i
 ## Development
 
 ```bash
-npm test          # unit tests: prices, markdown, default models, SDK check, daemon
+npm test          # unit tests: prices, markdown, default models, images, SDK check, daemon, guard
 npm run smoke     # headless Chrome UI smoke test (needs Chrome/Chromium)
 npm run dev       # start with node --watch
-npm run daemon    # run the scheduler on its own (--list, --run <name>, --once)
+npm run daemon -- --list          # also --run <name>, --once
 ```
 
 Architecture, API endpoints, localization and pi upgrade notes live in [DEVELOPMENT.md](DEVELOPMENT.md).
@@ -237,6 +259,9 @@ Contributions are welcome. A few things that make a PR easy to merge:
 2. Keep it plain: no frontend framework, no bundler, no new runtime dependency unless there's no way around it.
 3. Run `npm test` before pushing; `npm run smoke` if you touched the UI.
 4. Say in the PR what you changed and how you verified it — a screenshot or a test name is enough.
+5. Publish from a clean tag, never from a working tree:
+   `git worktree add /tmp/fidere-rel vX.Y.Z && cd /tmp/fidere-rel && npm pack`.
+   A working tree can hold untracked `workflows/` you did not mean to ship.
 
 UI strings go in `public/i18n.js`, and they need all seven locales (English, 简体中文, 繁體中文 台灣/香港, 日本語, 한국어, Русский) or the smoke test will fail.
 

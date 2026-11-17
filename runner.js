@@ -74,9 +74,20 @@ function summarizeToolCalls(run, message) {
   }
 }
 
+// Verify and notify commands are written by the user, so they must run in the
+// shell the user actually has. POSIX shells take `-c`; Windows has no `sh` in
+// PATH, and cmd.exe is the one interpreter that is always there.
+export function shellInvocation(command) {
+  if (process.platform === 'win32') {
+    return { file: process.env.ComSpec || 'cmd.exe', args: ['/d', '/s', '/c', command] };
+  }
+  return { file: process.env.SHELL || 'sh', args: ['-c', command] };
+}
+
 function runVerify(command, cwd, timeoutMs = 120_000) {
   return new Promise((resolve) => {
-    const child = spawn(process.env.SHELL || 'sh', ['-c', command], {
+    const { file, args } = shellInvocation(command);
+    const child = spawn(file, args, {
       cwd,
       stdio: ['ignore', 'pipe', 'pipe'],
       env: { ...process.env, FIDERE_RUN_DIR: cwd },

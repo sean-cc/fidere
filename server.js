@@ -1655,8 +1655,14 @@ server.listen(PORT, HOST, () => {
   if (AUTH_DISABLED) {
     console.warn('  ⚠️  Authentication is disabled (FIDERE_AUTH=off). Do not expose this server.\n');
   } else {
-    console.log(`  Access token: ${ACCESS.source}`);
+    // Print the value, not just where it lives: "paste the access token printed
+    // on startup" is what every document says, and telling someone to go and
+    // read a file first is exactly the step people skip.
+    const signIn = `http://${displayHost}:${PORT}/#token=${ACCESS.token}`;
+    console.log(`  Access token: ${ACCESS.token}`);
+    console.log(`  Stored in:    ${ACCESS.source === 'FIDERE_TOKEN' ? 'FIDERE_TOKEN (environment)' : ACCESS.source}`);
     console.log('  Sign in with it once; the session cookie lasts 30 days.');
-    console.log(`  Shortcut: open /#token=<token> (set FIDERE_SESSION_MAX_AGE to change the lifetime)\n`);
+    console.log(`  Shortcut:     ${signIn}`);
+    console.log('  Anyone with this value can use the server: do not paste this output publicly.\n');
   }
 });

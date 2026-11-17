@@ -111,7 +111,7 @@ tools: read,write,bash
 대화 중에는 실수를 그 자리에서 볼 수 있지만, 아무도 보지 않을 때는 실수가 밤새 돌아갑니다. 그래서 이 문제는 "얌전히 굴어라"고 프롬프트로 부탁해서 풀지 않고, 단단한 경계로 풉니다.
 
 - **실제 쓰기 경계:** 작업은 자신의 일회용 디렉터리와 `/tmp`에만 쓸 수 있습니다. `write`, `edit`, 셸 리다이렉션은 그 밖에서 모두 거부됩니다
-- **위험한 동작은 도구 계층에서 차단:** `sudo`, 루트 삭제, force push, 외부 호스트 업로드, `~/.pi/agent` 읽기는 거부되고 `blocked.log`에 기록됩니다
+- **위험한 동작은 도구 계층에서 차단:** `sudo`, 루트 삭제, force push, 외부 호스트 업로드, 그리고 `~/.pi/agent`를 건드리는 셸 명령은 거부되고 `blocked.log`에 기록됩니다
 - **기본값은 꺼짐:** 명령 실행이 필요 없으면 `tools`에서 `bash`를 빼세요. 작업은 당신의 스킬, 확장, 프로젝트 지시를 불러오지 않습니다
 - **모두 기록:** 세션, 명령, 비용, 결과가 모두 저장되어 실행을 재생할 수 있습니다
 
@@ -125,7 +125,7 @@ Fidere는 `127.0.0.1`만 수신하고, 단일 사용자이며, 액세스 토큰 
 
 - Node.js **22.19+**
 - 지원되는 공급자의 API 키(Anthropic, OpenAI, Google, DeepSeek, OpenRouter, Moonshot, MiniMax, xAI, Groq, Mistral 등)
-- macOS, Linux, Windows 모두 됩니다. macOS 전용은 두 가지뿐입니다: 선택적 슬립 방지(`npm run start:awake`)와 긴 작업 중의 `caffeinate`.
+- macOS, Linux, Windows 모두 됩니다. macOS 전용은 두 가지뿐입니다: 선택적 슬립 방지(`npm run start:awake`)와 긴 작업 중의 `caffeinate`. 워크플로의 `verify`/`notify` 명령은 macOS/Linux에서 `sh -c`, Windows에서 `cmd /c`로 실행되므로 실제로 쓰는 셸에 맞게 작성하세요.
 
 ### 1. 설치
 
@@ -145,7 +145,13 @@ npm install --ignore-scripts
 npm run setup
 ```
 
-`--ignore-scripts`는 npm 라이프사이클 스크립트를 건너뛰므로 설치 시 아무것도 실행되지 않습니다(Fidere에는 필요 없습니다). `npm run setup`은 공급자를 고르고 API 키를 입력받아 `~/.pi/agent/auth.json`에 저장합니다(전역 설치나 `npx`로 실행했다면 `npx @sean-cc/fidere --setup`을 쓰세요). **pi CLI를 따로 설치할 필요는 없습니다**: 일반 의존성으로 함께 설치됩니다.
+`--ignore-scripts`는 npm 라이프사이클 스크립트를 건너뛰므로 설치 시 아무것도 실행되지 않습니다(Fidere에는 필요 없습니다). `npm run setup`은 공급자를 고르고 API 키를 입력받아 `~/.pi/agent/auth.json`에 저장합니다(전역 설치라면 `fidere --setup`, 설치하지 않았다면 `npx @sean-cc/fidere --setup`). **pi CLI를 따로 설치할 필요는 없습니다**: 일반 의존성으로 함께 설치됩니다.
+
+전역 설치에서 미리 알아둘 세 가지가 있습니다:
+
+- **`fidere`는 `$(npm prefix -g)/bin` 안의 심볼릭 링크입니다.** `which fidere`(Windows에서는 `where fidere`, 디렉터리는 `%APPDATA%\npm`)로 찾을 수 있어야 합니다. 찾지 못한다면 그 디렉터리가 `PATH`에 없는 것입니다(npm prefix를 직접 설정한 경우가 흔합니다). `PATH`에 추가하거나 아래의 `npx` 방식을 쓰세요.
+- **시스템 Node는 `npm install -g`를 `EACCES`로 거부합니다.** `sudo` 대신 `nvm`, `fnm`, `volta`를 쓰세요. `sudo npm i -g`는 root에만 설치되고, 다음에 직접 설치하면 다시 실패합니다.
+- **`npx`는 처음에 "Ok to proceed?"를 묻습니다.** 스크립트에서는 `npx --yes @sean-cc/fidere`로 건너뛸 수 있습니다.
 
 ### 2. 서버 시작
 
@@ -155,11 +161,11 @@ npx @sean-cc/fidere    # 설치 없이 실행
 npm start     # 클론한 디렉터리에서
 ```
 
-시작한 디렉터리가 **워크스페이스**가 됩니다: `workflows/`, `.fidere/`, 업로드 파일이 그곳에 만들어지고, 첫 시작 시 샘플 워크플로가 복사됩니다. 다른 곳에 두려면 `FIDERE_WORKSPACE=/path`를 설정하세요.
+시작한 디렉터리가 **워크스페이스**가 됩니다: `workflows/`, `.fidere/`, 업로드 파일이 그곳에 만들어지고, 첫 시작 시 샘플 워크플로가 복사됩니다. 다른 곳에 두려면 `FIDERE_WORKSPACE=/path`(Windows에서는 `FIDERE_WORKSPACE=C:\path`)를 설정하세요.
 
 ### 3. 열고 로그인
 
-<http://localhost:3000>을 열고 시작할 때 출력된 액세스 토큰을 붙여넣습니다. 토큰은 `~/.pi/agent/fidere-token`(모드 `0600`)에도 저장됩니다. 세션 쿠키는 30일 동안 유지됩니다.
+<http://localhost:3000>을 열고 시작할 때 출력된 액세스 토큰을 붙여넣습니다. 시작 시 토큰 값 자체와 `http://localhost:3000/#token=<토큰>` 링크를 함께 출력하며, 링크를 열면 입력 없이 로그인됩니다. 같은 토큰은 `~/.pi/agent/fidere-token`(모드 `0600`)에도 저장되고 `FIDERE_TOKEN`으로 덮어쓸 수 있습니다. 세션 쿠키는 30일 동안 유지됩니다.
 
 ### 4. 모델 선택
 
@@ -173,23 +179,39 @@ npm start     # 클론한 디렉터리에서
 
 ### 업데이트 확인
 
-시작할 때마다 `npm start`는 npm에 더 새로운 pi가 게시되었는지 확인합니다. 대화형 터미널에서는 업데이트할지 묻고, yes를 선택하면 서버를 시작하기 전에 설치합니다. 비대화형 환경에서는 사용 가능한 버전만 출력하고 평소대로 시작합니다. `FIDERE_SDK_UPDATE=off`로 확인을 건너뛰거나, `auto`로 묻지 않고 업데이트할 수 있습니다.
+시작할 때마다(`fidere`, `npx @sean-cc/fidere`, `npm start` 모두) npm에 더 새로운 pi가 게시되었는지 확인합니다. 대화형 터미널에서는 업데이트할지 묻고, yes를 선택하면 서버를 시작하기 전에 설치합니다. 비대화형 환경에서는 사용 가능한 버전만 출력하고 평소대로 시작합니다. `FIDERE_SDK_UPDATE=off`로 확인을 건너뛰거나, `auto`로 묻지 않고 업데이트할 수 있습니다.
 
 ### 대신 환경 변수 사용
 
 ```bash
 export ANTHROPIC_API_KEY=sk-ant-...
-npm start
+fidere                    # 또는 npx @sean-cc/fidere, 클론에서는 npm start
 ```
 
 `OPENAI_API_KEY`, `GEMINI_API_KEY`, `DEEPSEEK_API_KEY`와 다른 공급자 환경 변수도 동작합니다. pi CLI는 필요 없습니다.
 
+Windows에서는 접두사가 다릅니다: PowerShell은 `$env:ANTHROPIC_API_KEY="sk-ant-..."`, CMD는 `set ANTHROPIC_API_KEY=sk-ant-...`, 그다음 `fidere`를 실행합니다.
+
+### 터미널 상호작용 없이 setup
+
+`--setup`은 두 가지를 묻지만, CI나 tty가 없는 ssh 세션에서는 답할 수 없습니다. 환경 변수로 답을 넘기세요:
+
+```bash
+FIDERE_PROVIDER=deepseek FIDERE_API_KEY=sk-... npx --yes @sean-cc/fidere --setup
+```
+
+결과는 대화형과 같습니다: 키는 `~/.pi/agent/auth.json`, 권장 모델은 `~/.pi/agent/settings.json`에 기록됩니다(Windows에서는 `%USERPROFILE%\.pi\agent`).
+
 ### 포트와 호스트
 
 ```bash
-PORT=8080 fidere             # 기본값 3000 (클론에서는 npm start)
-HOST=0.0.0.0 fidere          # 신뢰할 수 있는 네트워크에서만. 아래 참고
+PORT=8080 fidere                   # 전역 설치
+PORT=8080 npx @sean-cc/fidere      # 설치 없이 실행
+PORT=8080 npm start                # 클론한 디렉터리에서
+HOST=0.0.0.0 fidere                # 신뢰할 수 있는 네트워크에서만. 아래 참고
 ```
+
+Windows에서는 접두사가 다릅니다: PowerShell은 `$env:PORT="8080"; fidere`, CMD는 `set PORT=8080 && fidere`.
 
 ### 액세스 제어
 
@@ -212,7 +234,7 @@ HOST=0.0.0.0 fidere          # 신뢰할 수 있는 네트워크에서만. 아�
 ## 자주 묻는 질문
 
 - **가격은 어디서 오나요?** 각 모델은 **실제로 호출된 엔드포인트**와 공급자 자체 통화로 가격이 정해집니다. DeepSeek 공식 피크/오프피크 요금, OpenRouter 공식 토큰당 가격, Zhipu의 위안화 페이지, Anthropic·Moonshot·Aliyun·Hugging Face의 공개 가격 페이지/API입니다. 그 밖의 엔드포인트는 `models.json`에서 설정한 `cost`를 쓰고, pi에 포함된 가격이 마지막 폴백입니다. 자세한 규칙, 통화 재정의, 캐시는 [docs/pricing.md](docs/pricing.md)를 참고하세요.
-- **모델이 없나요?** `npm run setup`을 실행하거나 공급자 환경 변수를 설정한 뒤 서버를 다시 시작하세요.
+- **모델이 없나요?** 클론에서는 `npm run setup`, 전역 설치에서는 `fidere --setup`, 설치하지 않았다면 `npx @sean-cc/fidere --setup`을 실행하거나, 공급자 환경 변수를 설정한 뒤 서버를 다시 시작하세요.
 - **새 세션은 어떤 모델로 시작하나요?** 먼저 `~/.pi/agent/settings.json`의 `defaultProvider`/`defaultModel`, 그다음 Fidere 자체 추천 표(현재 DeepSeek → `deepseek-flash`), 마지막으로 pi 내장 공급자별 표 순입니다. `npm run setup`은 추천 모델을 settings에 기록하고, 모델 선택기 행의 **set default**로 나중에 바꿀 수 있습니다. 이 재정의가 있는 이유는 pi의 표가 DeepSeek을 `deepseek-v4-pro`로 시작하기 때문입니다. 이 모델은 `deepseek-flash` 입력 가격의 4.4배이고 텍스트 전용이라, 새로 설치한 사용자에게 비용이 많이 드는 놀라움이 됩니다.
 - **덮개를 닫으면 작업이 멈추나요?** 서버는 활성 작업 중에 `caffeinate` 어서션을 유지할 수 있지만, Mac이 클램셸 모드가 아닌 한 덮개를 닫으면 잠듭니다. 진짜 24/7 작업에는 항상 켜져 있는 머신을 사용하세요.
 - **키는 어디에 저장되나요?** `~/.pi/agent/auth.json`입니다. API 키는 이 저장소에 기록되지 않습니다.
@@ -220,10 +242,10 @@ HOST=0.0.0.0 fidere          # 신뢰할 수 있는 네트워크에서만. 아�
 ## 개발
 
 ```bash
-npm test          # 단위 테스트: 가격, markdown, 기본 모델, SDK 확인, 스케줄러
+npm test          # 단위 테스트: 가격, markdown, 기본 모델, 이미지, SDK 확인, 스케줄러, guard
 npm run smoke     # 헤드리스 Chrome UI 스모크 테스트(Chrome/Chromium 필요)
 npm run dev       # node --watch로 시작
-npm run daemon    # 스케줄러만 실행(--list, --run <name>, --once)
+npm run daemon -- --list   # 그 외 --run <name>, --once
 ```
 
 아키텍처, API 엔드포인트, 로컬라이제이션, pi 업그레이드 참고 사항은 [DEVELOPMENT.md](DEVELOPMENT.md)를 참고하세요.

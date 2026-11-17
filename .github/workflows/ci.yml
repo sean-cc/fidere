@@ -51,6 +51,12 @@ jobs:
       - name: launcher
         run: npm run test:sdk
 
+      - name: daemon
+        run: npm run test:daemon
+
+      - name: guard
+        run: npm run test:guard
+
   smoke:
     name: smoke (headless chrome)
     runs-on: ubuntu-latest

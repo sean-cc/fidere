@@ -111,7 +111,7 @@ tools: read,write,bash
 聊天時出錯你能當場看見；沒人看著的時候，錯誤會持續一整晚。所以這裡不靠提示詞求模型「別亂來」，而是靠硬邊界：
 
 - **真正的寫入邊界**：任務只能寫自己的一次性目錄和 `/tmp`，`write`、`edit` 與 shell 重定向在目錄外一律攔下
-- **危險動作攔在工具層**：`sudo`、刪系統根目錄、強制推送、往外部上傳、讀取 `~/.pi/agent`，一律攔下並寫進 `blocked.log`
+- **危險動作攔在工具層**：`sudo`、刪系統根目錄、強制推送、往外部上傳，以及碰 `~/.pi/agent` 的 shell 命令，一律攔下並寫進 `blocked.log`
 - **預設關掉不需要的能力**：任務不跑指令時，`tools` 裡不要放 `bash`；任務不會載入你自己的技能、擴充與專案指令
 - **全量留痕**：會話、指令、花費、結果全部落地，能回放
 
@@ -125,7 +125,7 @@ Fidere 預設只監聽 `127.0.0.1`、單使用者、只認一個存取權杖。�
 
 - Node.js **22.19 或更高版本**
 - 一個支援的大模型 API Key（Anthropic、OpenAI、Google、DeepSeek、OpenRouter、Moonshot、MiniMax、xAI、Groq、Mistral 等）
-- macOS、Linux、Windows 都行。只有兩處是 macOS 專屬：可選的防休眠（`npm run start:awake`）和長任務期間的 `caffeinate`；其餘部分只要能跑 Node 就能跑。
+- macOS、Linux、Windows 都行。有兩處是 macOS 專屬：可選的防休眠（`npm run start:awake`）和長任務期間的 `caffeinate`。工作流程的 `verify`、`notify` 指令在 macOS/Linux 上走 `sh -c`、在 Windows 上走 `cmd /c`，請按你手上真實的那個 shell 來寫。
 
 ### 1. 安裝
 
@@ -145,7 +145,13 @@ npm install --ignore-scripts
 npm run setup
 ```
 
-`--ignore-scripts` 跳過 npm 的生命週期腳本，安裝時什麼都不執行——Fidere 也用不上它們。`npm run setup` 讓你選服務商、填 API Key，儲存到 `~/.pi/agent/auth.json`；如果你是用全域安裝或 `npx` 跑的，改用 `npx @sean-cc/fidere --setup`。**不需要另外安裝 pi CLI**：它當作一般依賴裝進來。
+`--ignore-scripts` 跳過 npm 的生命週期腳本，安裝時什麼都不執行——Fidere 也用不上它們。`npm run setup` 讓你選服務商、填 API Key，儲存到 `~/.pi/agent/auth.json`；全域安裝後用 `fidere --setup`，不安裝用 `npx @sean-cc/fidere --setup`。**不需要另外安裝 pi CLI**：它當作一般依賴裝進來。
+
+全域安裝有三件事值得先知道，免得出問題再回頭查：
+
+- **`fidere` 是 `$(npm prefix -g)/bin` 裡的符號連結。** `which fidere`（Windows 上用 `where fidere`，目錄是 `%APPDATA%\npm`）必須找得到它。找不到就代表那個目錄不在 `PATH` 裡（自訂過 npm prefix 是最常見的原因），把它加進 `PATH`，或改用下面的 `npx` 方式。
+- **系統內建的 Node 會以 `EACCES` 拒絕 `npm install -g`。** 用 `nvm`、`fnm` 或 `volta`，不要用 `sudo`：`sudo npm i -g` 只替 root 安裝，你下次自己裝還是失敗。
+- **`npx` 第一次會問 "Ok to proceed?"。** 腳本裡用 `npx --yes @sean-cc/fidere` 跳過。
 
 ### 2. 啟動
 
@@ -155,11 +161,11 @@ npx @sean-cc/fidere    # 不安裝直接執行
 npm start     # 在複製下來的目錄裡
 ```
 
-在哪個目錄啟動，哪個目錄就是你的**工作區**：`workflows/`、`.fidere/` 和上傳檔案都建在那裡，第一次啟動會把範例工作流複製進去。想放到別處就設 `FIDERE_WORKSPACE=/path`。
+在哪個目錄啟動，哪個目錄就是你的**工作區**：`workflows/`、`.fidere/` 和上傳檔案都建在那裡，第一次啟動會把範例工作流複製進去。想放到別處就設 `FIDERE_WORKSPACE=/path`（Windows 上是 `FIDERE_WORKSPACE=C:\path`）。
 
 ### 3. 打開並登入
 
-打開 <http://localhost:3000>，貼上啟動時列印的存取權杖。權杖也儲存在 `~/.pi/agent/fidere-token`（權限 `0600`）。會話 Cookie 有效期 30 天。
+打開 <http://localhost:3000>，貼上啟動時列印的存取權杖。啟動會直接列印權杖值，也會列印一條 `http://localhost:3000/#token=<權杖>` 連結，點開就自動登入。同一個權杖也儲存在 `~/.pi/agent/fidere-token`（權限 `0600`），`FIDERE_TOKEN` 可以覆蓋它。會話 Cookie 有效期 30 天。
 
 ### 4. 選模型
 
@@ -173,23 +179,39 @@ npm start     # 在複製下來的目錄裡
 
 ### 更新檢查
 
-每次啟動時，`npm start` 會檢查 npm 上是否有新的 pi 版本。在互動式終端機裡會詢問是否更新；選擇更新後會先安裝新版本，再啟動服務。非互動環境只列印可更新版本，不會阻塞啟動。設定 `FIDERE_SDK_UPDATE=off` 可跳過檢查，`auto` 可自動更新。
+每次啟動時（`fidere`、`npx @sean-cc/fidere` 或 `npm start`）都會檢查 npm 上是否有新的 pi 版本。在互動式終端機裡會詢問是否更新；選擇更新後會先安裝新版本，再啟動服務。非互動環境只列印可更新版本，不會阻塞啟動。設定 `FIDERE_SDK_UPDATE=off` 可跳過檢查，`auto` 可自動更新。
 
 ### 用環境變數代替 `npm run setup`
 
 ```bash
 export ANTHROPIC_API_KEY=sk-ant-...
-npm start
+fidere                    # 或 npx @sean-cc/fidere；複製下來的目錄裡是 npm start
 ```
 
 `OPENAI_API_KEY`、`GEMINI_API_KEY`、`DEEPSEEK_API_KEY` 等同樣可用，不需要安裝 pi CLI。
 
+Windows 上前綴不一樣：PowerShell 是 `$env:ANTHROPIC_API_KEY="sk-ant-..."`，CMD 是 `set ANTHROPIC_API_KEY=sk-ant-...`，然後同樣執行 `fidere`。
+
+### 不靠終端互動完成 setup
+
+`--setup` 會問兩個問題，在 CI 或沒有 tty 的 ssh 工作階段裡沒辦法回答。用環境變數直接把答案給出去：
+
+```bash
+FIDERE_PROVIDER=deepseek FIDERE_API_KEY=sk-... npx --yes @sean-cc/fidere --setup
+```
+
+結果和互動式一樣：Key 進 `~/.pi/agent/auth.json`，推薦模型進 `~/.pi/agent/settings.json`（Windows 上是 `%USERPROFILE%\.pi\agent`）。
+
 ### 連接埠與監聽位址
 
 ```bash
-PORT=8080 fidere             # 預設 3000（複製下來的目錄裡用 npm start）
-HOST=0.0.0.0 fidere          # 只用於可信網路，見下
+PORT=8080 fidere                   # 全域安裝
+PORT=8080 npx @sean-cc/fidere      # 不安裝直接執行
+PORT=8080 npm start                # 在複製下來的目錄裡
+HOST=0.0.0.0 fidere                # 只用於可信網路，見下
 ```
+
+Windows 上前綴不一樣：PowerShell 是 `$env:PORT="8080"; fidere`，CMD 是 `set PORT=8080 && fidere`。
 
 ### 存取控制
 
@@ -212,7 +234,7 @@ HOST=0.0.0.0 fidere          # 只用於可信網路，見下
 ## 常見問題
 
 - **價格從哪來？** 每個模型按**實際呼叫的端點**、用供應商自己的幣種定價：DeepSeek 官網峰谷價、OpenRouter 官方按 token 價格、智譜的人民幣頁面，以及 Anthropic、Moonshot、阿里雲、Hugging Face 各自公開的價格頁 / API。其他位址使用你在 `models.json` 裡為該 provider 設定的 `cost`，pi 內建價兜底。完整規則、匯率覆蓋和快取見 [docs/pricing.md](docs/pricing.md)。
-- **模型清單是空的？** 先執行 `npm run setup`，或者設定一個 provider 的環境變數，然後重啟服務。
+- **模型清單是空的？** 複製下來的目錄裡跑 `npm run setup`；全域安裝用 `fidere --setup`；不安裝用 `npx @sean-cc/fidere --setup`；也可以直接設一個 provider 的環境變數，然後重啟服務。
 - **新會話預設用哪個模型？** 依序看：`~/.pi/agent/settings.json` 裡的 `defaultProvider`/`defaultModel`，然後是 Fidere 自己的推薦表（目前只有 DeepSeek → `deepseek-flash`），最後才是 pi 內建的 provider 預設表。`npm run setup` 會把推薦模型寫進 settings；模型選擇面板裡每行右側的 **set default** 也能隨時改。之所以要這一層：pi 的表把 DeepSeek 預設成 `deepseek-v4-pro`，輸入價是 `deepseek-flash` 的 4.4 倍且不支援圖片，新裝時容易一上來就燒錢。
 - **Mac 合蓋後任務會停？** 服務可以在任務執行期間阻止閒置休眠，但合蓋睡眠無法完全避免，除非使用合蓋模式。要真正 7×24，建議放在常開的機器上。
 - **Key 存在哪裡？** `~/.pi/agent/auth.json`。API Key 不會寫進這個儲存庫。
@@ -220,10 +242,10 @@ HOST=0.0.0.0 fidere          # 只用於可信網路，見下
 ## 開發
 
 ```bash
-npm test          # 單元測試：價格、markdown、預設模型、SDK 檢查、排程器
+npm test          # 單元測試：價格、markdown、預設模型、圖片、SDK 檢查、排程器、guard
 npm run smoke     # 無頭 Chrome 的介面冒煙測試（需要 Chrome/Chromium）
 npm run dev       # 以 node --watch 啟動
-npm run daemon    # 單獨執行排程器（--list、--run <name>、--once）
+npm run daemon -- --list   # 另有 --run <name>、--once
 ```
 
 架構、API 端點、在地化和 pi 版本升級說明見 [DEVELOPMENT.md](DEVELOPMENT.md)。

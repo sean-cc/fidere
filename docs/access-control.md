@@ -8,9 +8,11 @@ Every API route needs an access token.
 
 - Read from `FIDERE_TOKEN` if set.
 - Otherwise generated on first start into `~/.pi/agent/fidere-token` with mode `0600`.
-- The path is printed at startup.
+- The value (not just the path), a ready-made `/#token=<token>` link, and the file it came from are all printed at startup.
 
-Sign in once by opening `/#token=<token>` or by pasting the token into the login overlay. The fragment never reaches the server or the proxy log.
+Sign in once by opening the printed link or by pasting the token into the login overlay. The fragment never reaches the server or the proxy log.
+
+The token is the whole boundary: anyone who can read it can use the server. That is why the file is `0600` and why the startup output says not to paste it publicly. Set `FIDERE_TOKEN` to pin your own value (for a container, a proxy, or an existing secret store).
 
 ## Session cookie
 

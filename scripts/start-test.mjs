@@ -21,7 +21,9 @@ test('compareVersions treats a release as newer than its prerelease', () => {
   assert.equal(compareVersions('1.5.0-beta.1', '1.5.0'), -1);
 });
 
-test('a bin symlink is recognised as the entry point', async () => {
+// Windows only lets an elevated process (or Developer Mode) create symlinks,
+// and this repository does not assume either.
+test('a bin symlink is recognised as the entry point', { skip: process.platform === 'win32' }, async () => {
   const dir = await mkdtemp(path.join(os.tmpdir(), 'fidere-entry-'));
   try {
     const real = path.join(dir, 'start.mjs');
