@@ -24,7 +24,7 @@
     "scripts/setup.mjs",
     "scripts/start.mjs",
     "server.js",
-    "workflows/"
+    "templates/"
   ],
   "keywords": [
     "agent",

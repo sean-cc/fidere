@@ -162,7 +162,7 @@ npx @sean-cc/fidere    # 不安装直接跑
 npm start     # 在克隆目录里
 ```
 
-在哪个目录启动，哪个目录就是你的**工作区**：`workflows/`、`.fidere/` 和上传文件都建在那里，首次启动会把示例工作流复制进去。想放到别处就设 `FIDERE_WORKSPACE=/path`（Windows 上是 `FIDERE_WORKSPACE=C:\path`）。
+在哪个目录启动，哪个目录就是你的**工作区**：`workflows/`、`.fidere/` 和上传文件都建在那里，首次启动会把示例工作流复制进去。那里的东西全是你的——`workflows/` 在本仓库里被 gitignore，示例放在 `templates/workflows/`，所以你写的任务不会混进发布包。想放到别处就设 `FIDERE_WORKSPACE=/path`（Windows 上是 `FIDERE_WORKSPACE=C:\path`）。
 
 ### 3. 打开并登录
 
@@ -261,7 +261,7 @@ npm run daemon -- --list   # 另有 --run <name>、--once
 4. PR 里写清改了什么、怎么验证的——一张截图或一个测试名就够了。
 5. 发布一律从干净的 tag 打包，不要在本地工作区直接 `npm publish`：
    `git worktree add /tmp/fidere-rel vX.Y.Z && cd /tmp/fidere-rel && npm pack`。
-   工作区里可能有你不打算发出去的未跟踪 `workflows/`。
+   tag 才是发布内容的事实来源，本地工作区可能带着没提交的改动。
 
 界面文案在 `public/i18n.js`，七种语言都要补齐，否则冒烟测试会挂。
 

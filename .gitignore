@@ -4,8 +4,9 @@ node_modules/
 # 本地运行时数据：上传的附件、会话缓存、任务账本与运行目录
 .fidere/
 
-# 工作流产出的中间文件（脚本与说明本身要入库）
-workflows/*/out/
+# 工作区目录：整个 workflows/ 都是运行时产生的，属于使用者自己
+# （示例模板在 templates/workflows/，首次启动才复制进来）
+workflows/
 
 # 价格目录缓存（由 prices.js 拉取生成，可重建）
 output/

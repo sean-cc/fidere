@@ -162,7 +162,7 @@ npx @sean-cc/fidere    # without installing
 npm start     # in a clone
 ```
 
-Whichever directory you start it from is your **workspace**: `workflows/`, `.fidere/` and uploads are created there, and the sample workflow is copied in on the first start. Set `FIDERE_WORKSPACE=/path` to keep them somewhere else (`FIDERE_WORKSPACE=C:\path` on Windows).
+Whichever directory you start it from is your **workspace**: `workflows/`, `.fidere/` and uploads are created there, and the sample workflow is copied in on the first start. Everything in there is yours — `workflows/` is gitignored in this repo and the sample ships in `templates/workflows/`, so a task you write never ends up in a release. Set `FIDERE_WORKSPACE=/path` to keep the workspace somewhere else (`FIDERE_WORKSPACE=C:\path` on Windows).
 
 ### 3. Open and sign in
 
@@ -259,9 +259,9 @@ Contributions are welcome. A few things that make a PR easy to merge:
 2. Keep it plain: no frontend framework, no bundler, no new runtime dependency unless there's no way around it.
 3. Run `npm test` before pushing; `npm run smoke` if you touched the UI. CI runs the same suites on Ubuntu and Windows (node 22 and 24).
 4. Say in the PR what you changed and how you verified it — a screenshot or a test name is enough.
-5. Publish from a clean tag, never from a working tree:
+5. Publish from a clean tag, not from a working tree:
    `git worktree add /tmp/fidere-rel vX.Y.Z && cd /tmp/fidere-rel && npm pack`.
-   A working tree can hold untracked `workflows/` you did not mean to ship.
+   The tag is what the release claims to be; a working tree can hold uncommitted changes.
 
 UI strings go in `public/i18n.js`, and they need all seven locales (English, 简体中文, 繁體中文 台灣/香港, 日本語, 한국어, Русский) or the smoke test will fail.
 

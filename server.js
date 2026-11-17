@@ -331,16 +331,19 @@ const WORKFLOWS_DIR = path.resolve(CWD, 'workflows');
 const LEDGER_PATH = path.join(DATA_DIR, 'ledger.jsonl');
 const DAEMON_ENABLED = process.env.FIDERE_DAEMON !== 'off';
 
-// A clone already has ./workflows. An npm/npx install runs from the user's own
-// directory, so seed the sample there once instead of leaving the daemon with
-// nothing to watch and no hint about what a workflow looks like.
+// ./workflows is a runtime directory: everything in it belongs to whoever is
+// using this install. The sample therefore ships in templates/workflows, and it
+// is copied in once on first start so the daemon has something to watch and the
+// user has an example. Nothing under ./workflows is ever packaged or versioned.
+const SHIPPED_WORKFLOWS = path.join(__dirname, 'templates', 'workflows');
+
 function ensureWorkflowsDir() {
   if (fs.existsSync(WORKFLOWS_DIR)) return;
-  const shipped = path.join(__dirname, 'workflows');
   try {
     fs.mkdirSync(WORKFLOWS_DIR, { recursive: true });
-    for (const name of fs.readdirSync(shipped)) {
-      fs.cpSync(path.join(shipped, name), path.join(WORKFLOWS_DIR, name), { recursive: true });
+    if (!fs.existsSync(SHIPPED_WORKFLOWS)) return;
+    for (const name of fs.readdirSync(SHIPPED_WORKFLOWS)) {
+      fs.cpSync(path.join(SHIPPED_WORKFLOWS, name), path.join(WORKFLOWS_DIR, name), { recursive: true });
     }
     console.log(`  Created ${WORKFLOWS_DIR} with the sample workflow.`);
   } catch (err) {
