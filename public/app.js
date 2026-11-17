@@ -3011,11 +3011,20 @@ document.addEventListener('keydown', (e) => {
 });
 
 async function startNewChat() {
-  // Only stop a turn this page started. A tab that merely attached to a turn
-  // another tab is running (state.isStreaming without a local stream) must
-  // leave it alone: clicking "New chat" there used to kill the other tab's task.
-  if (state.currentStream && state.streamSid) {
-    try { await api('POST', `api/sessions/${state.streamSid}/abort`); } catch {}
+  // Do NOT abort the running turn here. Starting a new chat used to kill a
+  // task that was still working, so its answer was cut off mid-sentence and
+  // the truncated message (a tool call with empty arguments, no result) was
+  // left behind with no explanation.
+  //
+  // Leaving it alone is safe: the turn keeps running server-side and keeps
+  // streaming into its own session, whose DOM/state are already guarded by the
+  // `ctx.sessionId !== state.sessionId` checks in handleSSEEvent/settleTurn, so
+  // a background stream can never touch the new chat. Switching back to that
+  // session re-attaches via switchSession() → startSessionPoll() and pulls the
+  // finished transcript. The explicit Stop button (btnAbort) is still there
+  // for when the user really does want to cancel.
+  if (state.currentStream && state.streamSid && state.sessionId) {
+    showNotice(t('notice.previousTurnRunning'));
   }
   state.messages = [];
   state.pendingAttachments = [];
