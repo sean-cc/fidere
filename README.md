@@ -257,7 +257,7 @@ Contributions are welcome. A few things that make a PR easy to merge:
 
 1. Open an issue first for anything bigger than a bug fix, so the approach can be agreed on before you write it.
 2. Keep it plain: no frontend framework, no bundler, no new runtime dependency unless there's no way around it.
-3. Run `npm test` before pushing; `npm run smoke` if you touched the UI.
+3. Run `npm test` before pushing; `npm run smoke` if you touched the UI. CI runs the same suites on Ubuntu and Windows (node 22 and 24).
 4. Say in the PR what you changed and how you verified it — a screenshot or a test name is enough.
 5. Publish from a clean tag, never from a working tree:
    `git worktree add /tmp/fidere-rel vX.Y.Z && cd /tmp/fidere-rel && npm pack`.

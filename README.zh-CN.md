@@ -257,7 +257,7 @@ npm run daemon -- --list   # 另有 --run <name>、--once
 
 1. 比修 bug 大的改动先开 issue，把方案聊清楚再动手。
 2. 保持朴素：不引入前端框架、打包器，也不加新的运行时依赖，除非确实绕不开。
-3. 推送前跑 `npm test`；动过界面的再跑 `npm run smoke`。
+3. 推送前跑 `npm test`；动过界面的再跑 `npm run smoke`。CI 在 Ubuntu 和 Windows 上跑同一套单测（node 22 和 24）。
 4. PR 里写清改了什么、怎么验证的——一张截图或一个测试名就够了。
 5. 发布一律从干净的 tag 打包，不要在本地工作区直接 `npm publish`：
    `git worktree add /tmp/fidere-rel vX.Y.Z && cd /tmp/fidere-rel && npm pack`。
