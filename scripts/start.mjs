@@ -8,9 +8,10 @@
  * or FIDERE_SDK_UPDATE=auto to update without asking.
  */
 import { spawn } from 'node:child_process';
+import { realpathSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { fileURLToPath } from 'node:url';
 import readline from 'node:readline/promises';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -153,7 +154,25 @@ async function main() {
   return startServer(args);
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
+/**
+ * Is this file the one the user ran?
+ *
+ * npm installs a bin as a symlink (node_modules/.bin/fidere → scripts/start.mjs,
+ * and the same for a global install), so process.argv[1] is the link while
+ * import.meta.url points at the real file. Comparing the raw strings made a
+ * globally installed `fidere` start nothing and exit 0 without a word; resolving
+ * both sides is what makes the command work at all.
+ */
+export function isEntryPoint(argv1, moduleUrl) {
+  if (!argv1) return false;
+  try {
+    return realpathSync(argv1) === realpathSync(fileURLToPath(moduleUrl));
+  } catch {
+    return false;
+  }
+}
+
+if (isEntryPoint(process.argv[1], import.meta.url)) {
   main()
     .then((code) => process.exit(code))
     .catch((err) => {
