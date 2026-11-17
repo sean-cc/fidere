@@ -176,7 +176,7 @@ async function main() {
   console.log('  Credentials: ~/.pi/agent/auth.json');
   console.log('  Default model saved in: ~/.pi/agent/settings.json');
   console.log('\nNext:');
-  console.log('  npm start');
+  console.log('  fidere          # or: npm start, in a clone');
   console.log('  open http://localhost:3000');
   console.log('  pick a model from the sidebar ("set default" makes it stick)\n');
 }

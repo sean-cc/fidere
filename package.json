@@ -1,11 +1,12 @@
 {
   "name": "fidere",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "A small agent workspace in the browser, built on the pi SDK.",
   "type": "module",
   "license": "MIT",
   "bin": {
-    "fidere": "scripts/start.mjs"
+    "fidere": "scripts/start.mjs",
+    "fidere-setup": "scripts/setup.mjs"
   },
   "files": [
     "DEVELOPMENT.md",

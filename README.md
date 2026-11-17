@@ -14,7 +14,7 @@ Fidere is Latin for **"to trust"**. Trust doesn't come from a smarter model. It 
 
 ![Fidere conversation view](docs/screenshot-chat.jpg)
 
-> **New here?** Jump to [Quick start](#quick-start) to get from clone to a running assistant in about five minutes.
+> **New here?** Jump to [Quick start](#quick-start) to get from nothing to a running assistant in about five minutes.
 
 ## What makes it different
 
@@ -128,7 +128,16 @@ Fidere listens on `127.0.0.1`, is single-user, and accepts one access token. It 
 - An API key from a supported provider (Anthropic, OpenAI, Google, DeepSeek, OpenRouter, Moonshot, MiniMax, xAI, Groq, Mistral, and others)
 - macOS, Linux or Windows. Only two things are macOS-specific: the optional sleep assertion (`npm run start:awake`) and `caffeinate` during long tasks. Everything else runs anywhere Node runs.
 
-### 1. Clone and install
+### 1. Install
+
+The package is published to npm, so a clone is optional:
+
+```bash
+npm install -g fidere    # a global `fidere` command
+npx fidere               # or run it without installing at all
+```
+
+Or clone it, if you want to read and change the code:
 
 ```bash
 git clone https://github.com/sean-cc/fidere.git
@@ -137,13 +146,17 @@ npm install --ignore-scripts
 npm run setup
 ```
 
-`--ignore-scripts` skips npm lifecycle scripts, so nothing is executed at install time — Fidere doesn't need them. `npm run setup` asks you to choose a provider and enter its API key, and saves it to `~/.pi/agent/auth.json`. **You do not need to install the pi CLI**: it comes in as a normal dependency.
+`--ignore-scripts` skips npm lifecycle scripts, so nothing is executed at install time — Fidere doesn't need them. `npm run setup` asks you to choose a provider and enter its API key, and saves it to `~/.pi/agent/auth.json`; if you installed globally or used `npx`, run `npx fidere-setup` instead. **You do not need to install the pi CLI**: it comes in as a normal dependency.
 
 ### 2. Start the server
 
 ```bash
-npm start
+fidere        # global install
+npx fidere    # without installing
+npm start     # in a clone
 ```
+
+Whichever directory you start it from is your **workspace**: `workflows/`, `.fidere/` and uploads are created there, and the sample workflow is copied in on the first start. Set `FIDERE_WORKSPACE=/path` to keep them somewhere else.
 
 ### 3. Open and sign in
 
@@ -175,8 +188,8 @@ npm start
 ### Port and host
 
 ```bash
-PORT=8080 npm start          # default 3000
-HOST=0.0.0.0 npm start       # trusted networks only, see below
+PORT=8080 fidere             # default 3000 (npm start in a clone)
+HOST=0.0.0.0 fidere          # trusted networks only, see below
 ```
 
 ### Access control

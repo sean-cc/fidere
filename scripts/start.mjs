@@ -134,7 +134,7 @@ async function main() {
           update = /^y(es)?$/i.test(answer);
         } else if (!update) {
           console.log(`\n  pi SDK ${current} → ${latest} is available (non-interactive start, not updated automatically)`);
-          console.log(`  To update manually: npm install --ignore-scripts ${PACKAGE}@latest\n`);
+          console.log(`  To update manually: npm install --ignore-scripts --prefix ${ROOT} ${PACKAGE}@latest\n`);
         }
 
         if (update) {

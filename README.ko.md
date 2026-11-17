@@ -14,7 +14,7 @@ Fidere는 라틴어로 **"신뢰하다"** 라는 뜻입니다. 신뢰는 더 똑
 
 ![Fidere 대화 화면](docs/screenshot-chat.jpg)
 
-> **처음이신가요?** [빠른 시작](#빠른-시작)으로 바로 가세요. 클론에서 실행까지 약 5분이면 됩니다.
+> **처음이신가요?** [빠른 시작](#빠른-시작)으로 바로 가세요. 처음부터 실행까지 약 5분이면 됩니다.
 
 ## 무엇이 다른가
 
@@ -127,7 +127,16 @@ Fidere는 `127.0.0.1`만 수신하고, 단일 사용자이며, 액세스 토큰 
 - 지원되는 공급자의 API 키(Anthropic, OpenAI, Google, DeepSeek, OpenRouter, Moonshot, MiniMax, xAI, Groq, Mistral 등)
 - macOS, Linux, Windows 모두 됩니다. macOS 전용은 두 가지뿐입니다: 선택적 슬립 방지(`npm run start:awake`)와 긴 작업 중의 `caffeinate`.
 
-### 1. 클론 및 설치
+### 1. 설치
+
+패키지가 npm에 공개되어 있으므로 클론은 선택 사항입니다:
+
+```bash
+npm install -g fidere    # 전역 명령으로 설치
+npx fidere               # 또는 설치 없이 바로 실행
+```
+
+코드를 읽고 고치려면 클론하세요:
 
 ```bash
 git clone https://github.com/sean-cc/fidere.git
@@ -136,13 +145,17 @@ npm install --ignore-scripts
 npm run setup
 ```
 
-`--ignore-scripts`는 npm 라이프사이클 스크립트를 건너뛰므로 설치 시 아무것도 실행되지 않습니다(Fidere에는 필요 없습니다). `npm run setup`은 공급자를 고르고 API 키를 입력받아 `~/.pi/agent/auth.json`에 저장합니다. **pi CLI를 따로 설치할 필요는 없습니다**: 일반 의존성으로 함께 설치됩니다.
+`--ignore-scripts`는 npm 라이프사이클 스크립트를 건너뛰므로 설치 시 아무것도 실행되지 않습니다(Fidere에는 필요 없습니다). `npm run setup`은 공급자를 고르고 API 키를 입력받아 `~/.pi/agent/auth.json`에 저장합니다(전역 설치나 `npx`로 실행했다면 `npx fidere-setup`을 쓰세요). **pi CLI를 따로 설치할 필요는 없습니다**: 일반 의존성으로 함께 설치됩니다.
 
 ### 2. 서버 시작
 
 ```bash
-npm start
+fidere        # 전역 설치
+npx fidere    # 설치 없이 실행
+npm start     # 클론한 디렉터리에서
 ```
+
+시작한 디렉터리가 **워크스페이스**가 됩니다: `workflows/`, `.fidere/`, 업로드 파일이 그곳에 만들어지고, 첫 시작 시 샘플 워크플로가 복사됩니다. 다른 곳에 두려면 `FIDERE_WORKSPACE=/path`를 설정하세요.
 
 ### 3. 열고 로그인
 
@@ -174,8 +187,8 @@ npm start
 ### 포트와 호스트
 
 ```bash
-PORT=8080 npm start          # 기본값 3000
-HOST=0.0.0.0 npm start       # 신뢰할 수 있는 네트워크에서만. 아래 참고
+PORT=8080 fidere             # 기본값 3000 (클론에서는 npm start)
+HOST=0.0.0.0 fidere          # 신뢰할 수 있는 네트워크에서만. 아래 참고
 ```
 
 ### 액세스 제어

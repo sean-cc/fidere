@@ -14,7 +14,7 @@ Fidere はラテン語で **「信頼する」**。信頼は賢いモデルか�
 
 ![Fidere の会話画面](docs/screenshot-chat.jpg)
 
-> **はじめての方へ** —— [クイックスタート](#クイックスタート)へ。クローンから約 5 分で動きます。
+> **はじめての方へ** —— [クイックスタート](#クイックスタート)へ。ゼロから約 5 分で動きます。
 
 ## 何が違うのか
 
@@ -127,7 +127,16 @@ Fidere は `127.0.0.1` のみをリッスンし、シングルユーザーで、
 - 対応プロバイダーの API キー（Anthropic、OpenAI、Google、DeepSeek、OpenRouter、Moonshot、MiniMax、xAI、Groq、Mistral など）
 - macOS・Linux・Windows のいずれでも動きます。macOS 専用なのは 2 つだけ：任意のスリープ抑止（`npm run start:awake`）と、長いタスク中の `caffeinate` です。
 
-### 1. クローンしてインストール
+### 1. インストール
+
+パッケージは npm に公開済みなので、クローンは任意です：
+
+```bash
+npm install -g fidere    # グローバルコマンドとして
+npx fidere               # またはインストールせずに実行
+```
+
+コードを読み書きしたい場合はクローンしてください：
 
 ```bash
 git clone https://github.com/sean-cc/fidere.git
@@ -136,13 +145,17 @@ npm install --ignore-scripts
 npm run setup
 ```
 
-`--ignore-scripts` は npm のライフサイクルスクリプトを飛ばすので、インストール時に何も実行されません（Fidere には不要です）。`npm run setup` でプロバイダーを選び API キーを入力すると、`~/.pi/agent/auth.json` に保存されます。**pi CLI を別途インストールする必要はありません**：通常の依存関係として入ります。
+`--ignore-scripts` は npm のライフサイクルスクリプトを飛ばすので、インストール時に何も実行されません（Fidere には不要です）。`npm run setup` でプロバイダーを選び API キーを入力すると、`~/.pi/agent/auth.json` に保存されます（グローバルインストールや `npx` の場合は `npx fidere-setup` を使ってください）。**pi CLI を別途インストールする必要はありません**：通常の依存関係として入ります。
 
 ### 2. 起動
 
 ```bash
-npm start
+fidere        # グローバルインストール
+npx fidere    # インストールせずに実行
+npm start     # クローンしたディレクトリで
 ```
+
+起動したディレクトリが**ワークスペース**になります：`workflows/`、`.fidere/`、アップロードされたファイルはそこに作られ、初回起動時にサンプルのワークフローがコピーされます。別の場所にしたい場合は `FIDERE_WORKSPACE=/path` を設定してください。
 
 ### 3. 開いてサインイン
 
@@ -174,8 +187,8 @@ npm start
 ### ポートとホスト
 
 ```bash
-PORT=8080 npm start          # 既定は 3000
-HOST=0.0.0.0 npm start       # 信頼できるネットワークのみ。下記参照
+PORT=8080 fidere             # 既定は 3000（クローンでは npm start）
+HOST=0.0.0.0 fidere          # 信頼できるネットワークのみ。下記参照
 ```
 
 ### アクセス制御

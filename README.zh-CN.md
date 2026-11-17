@@ -14,7 +14,7 @@ Fidere 是拉丁语里的 **"to trust"**。信任不来自更聪明的模型，�
 
 ![Fidere 对话界面](docs/screenshot-chat.jpg)
 
-> **第一次来？** 直接跳到[快速开始](#快速开始)，大约五分钟就能从克隆跑到能用。
+> **第一次来？** 直接跳到[快速开始](#快速开始)，大约五分钟就能从零跑到能用。
 
 ## 特色
 
@@ -128,7 +128,16 @@ Fidere 默认只监听 `127.0.0.1`、单用户、只认一个访问令牌。它�
 - 一个支持的大模型 API Key（Anthropic、OpenAI、Google、DeepSeek、OpenRouter、Moonshot、MiniMax、xAI、Groq、Mistral 等）
 - macOS、Linux、Windows 都行。只有两处是 macOS 专属：可选的防休眠（`npm run start:awake`）和长任务期间的 `caffeinate`；其余部分只要能跑 Node 就能跑。
 
-### 1. 克隆并安装
+### 1. 安装
+
+包已经发布到 npm，可以不克隆：
+
+```bash
+npm install -g fidere    # 装成全局命令
+npx fidere               # 或者完全不安装，直接跑
+```
+
+想读代码、改代码就克隆下来：
 
 ```bash
 git clone https://github.com/sean-cc/fidere.git
@@ -137,13 +146,17 @@ npm install --ignore-scripts
 npm run setup
 ```
 
-`--ignore-scripts` 跳过 npm 的生命周期脚本，安装时什么都不执行——Fidere 也用不上它们。`npm run setup` 让你选服务商、填 API Key，保存到 `~/.pi/agent/auth.json`。**不需要另外安装 pi CLI**：它作为普通依赖装进来。
+`--ignore-scripts` 跳过 npm 的生命周期脚本，安装时什么都不执行——Fidere 也用不上它们。`npm run setup` 让你选服务商、填 API Key，保存到 `~/.pi/agent/auth.json`；如果你是用全局安装或 `npx` 跑的，改用 `npx fidere-setup`。**不需要另外安装 pi CLI**：它作为普通依赖装进来。
 
 ### 2. 启动
 
 ```bash
-npm start
+fidere        # 全局安装
+npx fidere    # 不安装直接跑
+npm start     # 在克隆目录里
 ```
+
+在哪个目录启动，哪个目录就是你的**工作区**：`workflows/`、`.fidere/` 和上传文件都建在那里，首次启动会把示例工作流复制进去。想放到别处就设 `FIDERE_WORKSPACE=/path`。
 
 ### 3. 打开并登录
 
@@ -175,8 +188,8 @@ npm start
 ### 端口与监听地址
 
 ```bash
-PORT=8080 npm start          # 默认 3000
-HOST=0.0.0.0 npm start       # 只用于可信网络，见下
+PORT=8080 fidere             # 默认 3000（克隆目录里用 npm start）
+HOST=0.0.0.0 fidere          # 只用于可信网络，见下
 ```
 
 ### 访问控制
