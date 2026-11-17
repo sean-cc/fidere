@@ -16,11 +16,16 @@ permissions:
 
 jobs:
   test:
-    name: test (node ${{ matrix.node }})
-    runs-on: ubuntu-latest
+    name: test (${{ matrix.os }}, node ${{ matrix.node }})
+    # The unit suites are offline and platform-neutral by design; running them on
+    # Windows is what keeps the documented `cmd /c` paths and `os.homedir()`
+    # honest, since nothing else exercises them. The UI smoke test stays on Linux
+    # only — it needs headless Chrome.
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
+        os: [ubuntu-latest, windows-latest]
         # 22 is the lowest version `engines` allows, so it is the one that
         # actually enforces the floor. 24 catches deprecations early.
         node: ['22', '24']
