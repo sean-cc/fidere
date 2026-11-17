@@ -1,5 +1,6 @@
-// Conversation timeline: one tick per user prompt, with a fixed minimum gap
-// and a scrolling window when prompts overflow. Extracted from app.js.
+// Conversation timeline: one tick per user prompt, always at the same fixed
+// pitch, centred as a block when they fit and becoming a scrolling window when
+// they no longer do. Extracted from app.js.
 import { t } from './i18n.js';
 export function createRuler(options) {
   const {
@@ -22,6 +23,10 @@ let rulerLastCurrentIndex = -1;
 let rulerEdgeTimer = null;
 let rulerEdgeDir = 0;
 const RULER_MIN_GAP = 9;
+// Comfortable pitch for a short conversation. Without this ceiling three
+// prompts were either crammed into a 9px cluster or stretched across the whole
+// rail; 18px keeps them readable and still visibly grouped.
+const RULER_MAX_GAP = 18;
 const RULER_EDGE_ZONE = 18;
 const RULER_EDGE_STEP = 2;
 const RULER_EDGE_INTERVAL = 100;
@@ -77,23 +82,25 @@ function refreshRuler() {
   const scrollTop = chatMessages.scrollTop;
   const trackHeight = trackEl.clientHeight || 1;
 
-  // Evenly spaced slots: the ruler is an index of prompts, not a map of the
-  // transcript's pixel offsets (long replies no longer create huge gaps).
+  // One tick per prompt, at a pitch that never goes below RULER_MIN_GAP and
+  // never above RULER_MAX_GAP. A handful of prompts keeps the comfortable
+  // 18px rhythm and sits as one centred block; between the two limits the pitch
+  // grows just enough to fill the rail exactly; below RULER_MIN_GAP the rail
+  // becomes a scrolling window over a taller fixed-pitch stack instead of
+  // dropping ticks or squeezing them together. The ruler is an index of
+  // prompts, not a map of the transcript's pixel offsets, so long replies never
+  // create gaps.
   const count = rulerTicks.length;
   const edgePadding = Math.min(10, trackHeight / 4);
   const usableHeight = Math.max(1, trackHeight - edgePadding * 2);
-
-  // `gap` never drops below RULER_MIN_GAP. Once the prompts no longer fit,
-  // the ruler becomes a scrolling window over a taller fixed-pitch stack
-  // instead of dropping ticks or squeezing them together.
-  const capacity = Math.max(2, Math.floor(usableHeight / RULER_MIN_GAP) + 1);
-  const scrollable = count > capacity;
-  const gap = scrollable
-    ? RULER_MIN_GAP
-    : (count > 1 ? usableHeight / (count - 1) : 0);
-  const totalHeight = scrollable
-    ? edgePadding * 2 + (count - 1) * RULER_MIN_GAP
-    : trackHeight;
+  const gap = count > 1
+    ? Math.min(RULER_MAX_GAP, Math.max(RULER_MIN_GAP, usableHeight / (count - 1)))
+    : RULER_MIN_GAP;
+  const groupHeight = (count - 1) * gap;
+  // Positive once the prompts no longer fit. The rail then becomes a scrolling
+  // window over a taller fixed-pitch stack instead of dropping ticks or
+  // squeezing them together.
+  const slack = edgePadding * 2 + groupHeight - trackHeight;
 
   // Measure prompt offsets on structure/layout changes, or at most a few
   // times per second. During streaming, scrolling alone does not move prompts
@@ -121,7 +128,7 @@ function refreshRuler() {
 
   // Slide the window just enough to keep the reading position visible. This is
   // what makes the ruler scroll with the conversation once it overflows.
-  if (scrollable) {
+  if (slack > 0) {
     const focusScroll = scrollTop + chatMessages.clientHeight / 2;
     let focusIndex = 0;
     for (let i = 0; i < count; i++) {
@@ -138,19 +145,20 @@ function refreshRuler() {
       }
     }
 
-    const focusY = edgePadding + focusIndex * RULER_MIN_GAP;
-    const maxOffset = Math.max(0, totalHeight - trackHeight);
-    // Keep the reading position centred in the ruler window.
-    rulerWindowOffset = Math.max(0, Math.min(maxOffset, focusY - trackHeight / 2));
+    const focusY = edgePadding + focusIndex * gap;
+    // Keep the reading position centred in the ruler window; near either end
+    // the window stops at the edge instead of leaving half the rail empty.
+    rulerWindowOffset = Math.max(0, Math.min(slack, focusY - trackHeight / 2));
   } else {
-    rulerWindowOffset = 0;
+    // Everything fits: centre the whole block so the fixed pitch is preserved
+    // and the ticks do not hang off the top of the rail.
+    rulerWindowOffset = edgePadding + groupHeight / 2 - trackHeight / 2;
   }
 
   const layoutKey = `${rulerTicksVersion}|${gap}|${trackHeight}|${rulerWindowOffset}|${count}`;
   if (layoutKey !== rulerLastLayoutKey) {
     rulerTicks.forEach((tick, index) => {
-      const stackY = count === 1 ? trackHeight / 2 : edgePadding + index * gap;
-      tick.y = stackY - rulerWindowOffset;
+      tick.y = edgePadding + index * gap - rulerWindowOffset;
       tick.el.style.top = `${tick.y}px`;
     });
     rulerLastLayoutKey = layoutKey;

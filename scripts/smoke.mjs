@@ -642,6 +642,47 @@ async function browserTests() {
     `top=${Math.round(chat.scrollTop)} max=${Math.round(chat.scrollHeight - chat.clientHeight)}`,
   );
 
+  // ── Short conversation keeps the fixed pitch and is centred ─────────────
+  // Three prompts used to be stretched across the whole rail; they must now
+  // stay 9px apart and sit as one centred block.
+  document.querySelectorAll('#chatMessages > *').forEach(element => element.remove());
+  state.messages = [];
+  for (let i = 0; i < 3; i++) {
+    const userMessage = {
+      id: 'few_user_' + i, role: 'user', content: 'short prompt ' + i,
+      toolCalls: [], thinking: '', timestamp: new Date().toISOString(),
+    };
+    const replyMessage = {
+      id: 'few_reply_' + i, role: 'assistant',
+      content: ('filler paragraph ' + i + '\n\n').repeat(120),
+      toolCalls: [], thinking: '', timestamp: new Date().toISOString(),
+    };
+    state.messages.push(userMessage, replyMessage);
+    appendMessage(userMessage);
+    appendMessage(replyMessage);
+  }
+  scrollToBottom(true);
+  await wait(300);
+
+  const fewTicks = [...document.querySelectorAll('.ruler-tick')]
+    .map(tick => parseFloat(tick.style.top))
+    .sort((a, b) => a - b);
+  const fewGaps = fewTicks.slice(1).map((y, i) => y - fewTicks[i]);
+  const fewCentre = fewTicks.length ? (fewTicks[0] + fewTicks[fewTicks.length - 1]) / 2 : -1;
+  // ── Short conversation keeps a comfortable pitch, centred ───────────────
+  // Three prompts used to be stretched across the whole rail; they must now
+  // keep the 18px comfortable pitch and sit as one centred block.
+  check(
+    'short ruler keeps a comfortable pitch',
+    fewTicks.length === 3 && fewGaps.every(gap => Math.abs(gap - 18) < 0.2),
+    `ticks=${fewTicks.length} gaps=${fewGaps.map(gap => gap.toFixed(2)).join(',')}`,
+  );
+  check(
+    'short ruler is centred on the rail',
+    Math.abs(fewCentre - track.clientHeight / 2) <= 1,
+    `centre=${fewCentre.toFixed(1)} railMid=${(track.clientHeight / 2).toFixed(1)}`,
+  );
+
   // ── Consecutive assistant steps group under one avatar ───────────────────
   document.querySelectorAll('#chatMessages > *').forEach(element => element.remove());
   api.state.messages = [];

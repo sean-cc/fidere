@@ -924,7 +924,8 @@ function scrollToBottom(force = false) {
 }
 
 // ── Conversation timeline (right-hand ruler) ─────────────────────────────
-// One evenly spaced tick per user prompt. Hovering previews the prompt;
+// One tick per user prompt, 18px apart while they fit and tightening to 9px
+// before the rail turns into a scrolling window. Hovering previews the prompt;
 // clicking or dragging the rail jumps to the nearest prompt.
 function maxChatScroll() {
   return Math.max(0, chatMessages.scrollHeight - chatMessages.clientHeight);
