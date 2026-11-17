@@ -512,6 +512,18 @@ function readRawBody(req, limit = MAX_UPLOAD_BYTES) {
   });
 }
 
+// Coerce whatever a session listing hands back (Date, epoch ms, ISO string)
+// into an ISO string, so the browser always has something parseable.
+function isoTime(value) {
+  if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value.toISOString();
+  if (typeof value === 'number') return Number.isFinite(value) ? new Date(value).toISOString() : null;
+  if (typeof value === 'string' && value) {
+    const ms = Date.parse(value);
+    return Number.isNaN(ms) ? null : new Date(ms).toISOString();
+  }
+  return null;
+}
+
 function stripAttachmentMarkers(text) {
   return String(text || '')
     .replace(/<fidere-attachments>[\s\S]*?<\/fidere-attachments>/g, '')
@@ -1042,14 +1054,19 @@ const server = http.createServer(async (req, res) => {
   if (p === '/api/sessions' && req.method === 'GET') {
     try {
       const sessions = await SessionManager.list(CWD);
+      // The SDK's SessionInfo names these `path`, `created` and `modified`
+      // (Date objects). Older names are kept as fallbacks so the list keeps
+      // working if the SDK ever renames them again — when this mapping drops
+      // the timestamps, the sidebar silently shows no dates at all.
       const formatted = sessions.map(s => ({
         id: s.id || s.sessionId,
-        file: s.file || s.sessionFile,
+        file: s.path || s.file || s.sessionFile,
         label: s.name || '',
         firstMessage: stripAttachmentMarkers(s.firstMessage || '').replace(/\s+/g, ' ').slice(0, 160),
         messageCount: s.messageCount || 0,
         cwd: s.cwd || CWD,
-        updatedAt: s.updatedAt || s.mtime,
+        created: isoTime(s.created),
+        updatedAt: isoTime(s.modified ?? s.updatedAt ?? s.mtime),
       }));
       sendJSON(res, 200, formatted);
     } catch (err) {

@@ -1115,6 +1115,30 @@ async function loadSessionList() {
   }
 }
 
+// Sidebar-sized timestamp: the time for today, the date for anything older.
+// Full value stays in the tooltip. Language-neutral (Intl only), so it needs
+// no i18n strings.
+function formatSessionStamp(value) {
+  if (!value) return '';
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  const locale = getLocale();
+  const now = new Date();
+  try {
+    if (date.toDateString() === now.toDateString()) {
+      return date.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
+    }
+    const sameYear = date.getFullYear() === now.getFullYear();
+    return new Intl.DateTimeFormat(locale, {
+      month: 'numeric',
+      day: 'numeric',
+      ...(sameYear ? {} : { year: 'numeric' }),
+    }).format(date);
+  } catch {
+    return date.toLocaleDateString();
+  }
+}
+
 function renderSessionList(sessions) {
   if (!sessions || sessions.length === 0) {
     sessionList.innerHTML = `<div class="session-item" style="opacity:0.5">${escapeHtml(t('sessions.empty'))}</div>`;
@@ -1123,13 +1147,120 @@ function renderSessionList(sessions) {
   sessionList.innerHTML = sessions.map(s => {
     const label = s.label || escapeHtml(s.firstMessage || '').slice(0, 50) || s.id.slice(0, 8);
     const active = s.id === state.sessionId ? ' active' : '';
+    const stampSource = s.updatedAt || s.created;
+    const stamp = formatSessionStamp(stampSource);
+    const stampDate = stampSource ? new Date(stampSource) : null;
+    const stampTitle = stampDate && !Number.isNaN(stampDate.getTime())
+      ? ` title="${escapeAttr(stampDate.toLocaleString(getLocale()))}"`
+      : '';
     return `
       <div class="session-item${active}" data-sid="${s.id}" onclick="switchSession('${s.id}')">
         <span class="session-icon">💬</span>
         <span class="session-label" title="${escapeHtml(s.firstMessage || s.id)}">${label}</span>
+        ${stamp ? `<span class="session-time"${stampTitle}>${escapeHtml(stamp)}</span>` : ''}
         <button class="session-delete" onclick="deleteSession(event, '${s.id}')" title="${escapeAttr(t('sessions.delete'))}">×</button>
       </div>`;
   }).join('');
+}
+
+/* ── Sidebar width ────────────────────────────────────────────────────────
+ * Desktop only: drag the right edge, or focus the handle and use the arrow
+ * keys. The width is remembered in localStorage; double-click resets it.
+ * Below 900px the sidebar is an off-canvas drawer with a fixed width.
+ */
+const SIDEBAR_WIDTH_KEY = 'fidere-sidebar-width';
+const SIDEBAR_MIN_WIDTH = 220;
+const SIDEBAR_MAX_WIDTH = 560;
+const SIDEBAR_DEFAULT_WIDTH = 260;
+const SIDEBAR_DRAWER_BREAKPOINT = 900;
+
+function clampSidebarWidth(value) {
+  const width = Math.round(Number(value));
+  if (!Number.isFinite(width)) return SIDEBAR_DEFAULT_WIDTH;
+  return Math.min(SIDEBAR_MAX_WIDTH, Math.max(SIDEBAR_MIN_WIDTH, width));
+}
+
+function setSidebarWidth(value, { persist = false } = {}) {
+  if (!sidebar) return;
+  const width = clampSidebarWidth(value);
+  sidebar.style.width = `${width}px`;
+  if (persist) {
+    try { localStorage.setItem(SIDEBAR_WIDTH_KEY, String(width)); } catch {}
+  }
+  return width;
+}
+
+function restoreSidebarWidth() {
+  let stored = null;
+  try { stored = localStorage.getItem(SIDEBAR_WIDTH_KEY); } catch {}
+  if (stored) setSidebarWidth(stored);
+}
+
+function initSidebarResizer() {
+  const resizer = $('#sidebarResizer');
+  if (!resizer || !sidebar) return;
+  restoreSidebarWidth();
+
+  let startX = 0;
+  let startWidth = 0;
+  let activePointer = null;
+
+  const stop = () => {
+    if (activePointer === null) return;
+    activePointer = null;
+    document.body.classList.remove('sidebar-resizing');
+    try { localStorage.setItem(SIDEBAR_WIDTH_KEY, String(Math.round(sidebar.getBoundingClientRect().width))); } catch {}
+  };
+
+  resizer.addEventListener('pointerdown', (event) => {
+    if (window.innerWidth <= SIDEBAR_DRAWER_BREAKPOINT) return;
+    if (event.button !== 0) return;
+    event.preventDefault();
+    activePointer = event.pointerId;
+    startX = event.clientX;
+    startWidth = sidebar.getBoundingClientRect().width;
+    document.body.classList.add('sidebar-resizing');
+    try { resizer.setPointerCapture(event.pointerId); } catch {}
+  });
+
+  resizer.addEventListener('pointermove', (event) => {
+    if (activePointer === null || event.pointerId !== activePointer) return;
+    setSidebarWidth(startWidth + (event.clientX - startX));
+  });
+
+  resizer.addEventListener('pointerup', stop);
+  resizer.addEventListener('pointercancel', stop);
+  resizer.addEventListener('lostpointercapture', stop);
+
+  // Double-click returns to the default, like most editor splitters.
+  resizer.addEventListener('dblclick', (event) => {
+    event.preventDefault();
+    setSidebarWidth(SIDEBAR_DEFAULT_WIDTH, { persist: true });
+  });
+
+  // Keyboard access: arrows nudge, Home resets.
+  resizer.addEventListener('keydown', (event) => {
+    const current = sidebar.getBoundingClientRect().width;
+    const step = event.shiftKey ? 48 : 16;
+    if (event.key === 'ArrowLeft') {
+      event.preventDefault();
+      setSidebarWidth(current - step, { persist: true });
+    } else if (event.key === 'ArrowRight') {
+      event.preventDefault();
+      setSidebarWidth(current + step, { persist: true });
+    } else if (event.key === 'Home') {
+      event.preventDefault();
+      setSidebarWidth(SIDEBAR_DEFAULT_WIDTH, { persist: true });
+    }
+  });
+
+  // A stored width from a wide window must not overflow a narrow one.
+  window.addEventListener('resize', () => {
+    if (window.innerWidth <= SIDEBAR_DRAWER_BREAKPOINT) return;
+    const max = Math.min(SIDEBAR_MAX_WIDTH, Math.round(window.innerWidth * 0.6));
+    const current = sidebar.getBoundingClientRect().width;
+    if (current > max) setSidebarWidth(max, { persist: true });
+  });
 }
 
 window.switchSession = async function (sid) {
@@ -3102,5 +3233,6 @@ async function init() {
 }
 
 bindLogin();
+initSidebarResizer();
 init();
 updateSendState();

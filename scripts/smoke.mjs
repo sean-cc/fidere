@@ -73,6 +73,17 @@ const server = http.createServer(async (req, res) => {
       isStreaming: false,
       firstMessage: 'Smoke test',
       label: 'Smoke test',
+      // The sidebar prints the time for today and the date for anything older.
+      updatedAt: new Date().toISOString(),
+      created: new Date().toISOString(),
+    }, {
+      id: 'smoke-old',
+      messageCount: 12,
+      isStreaming: false,
+      firstMessage: 'Older smoke test',
+      label: 'Older smoke test',
+      updatedAt: '2020-03-04T05:06:07.000Z',
+      created: '2020-03-04T05:06:07.000Z',
     }]);
   }
   if (url.pathname === '/api/sessions' && req.method === 'POST') {
@@ -484,6 +495,19 @@ async function browserTests() {
     'live message shows token usage',
     liveUsage.includes('↑120') && liveUsage.includes('↓30'),
     liveUsage,
+  );
+  const todayStamp = document.querySelector('.session-item[data-sid="smoke"] .session-time')?.textContent?.trim() || '';
+  const oldStamp = document.querySelector('.session-item[data-sid="smoke-old"] .session-time')?.textContent?.trim() || '';
+  const oldStampTitle = document.querySelector('.session-item[data-sid="smoke-old"] .session-time')?.getAttribute('title') || '';
+  check(
+    'sidebar session shows a time for today',
+    /\d{1,2}:\d{2}/.test(todayStamp),
+    todayStamp,
+  );
+  check(
+    'sidebar session shows a date when older',
+    oldStamp && !/\d{1,2}:\d{2}/.test(oldStamp) && /\d/.test(oldStamp) && /2020/.test(oldStampTitle),
+    `stamp=${oldStamp} title=${oldStampTitle}`,
   );
   check(
     'sidebar shows session token usage',

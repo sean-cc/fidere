@@ -66,13 +66,54 @@ body {
 
 /* ── Sidebar ────────────────────────────────────────────────────────────── */
 .sidebar {
-  width: 260px;
-  min-width: 260px;
+  /* Width is set inline by the resizer (persisted in localStorage); the
+     fallback keeps the first paint at the original 260px. */
+  width: var(--sidebar-width, 260px);
+  min-width: 220px;
+  max-width: 560px;
   background: var(--bg-sidebar);
   display: flex;
   flex-direction: column;
   border-right: 1px solid var(--border-primary);
   transition: transform 0.2s ease;
+  position: relative;
+  flex-shrink: 0;
+}
+
+/* Drag handle on the sidebar's right edge. Sits astride the border so it is
+   easy to grab without stealing clicks from the session list. */
+.sidebar-resizer {
+  position: absolute;
+  top: 0;
+  right: -3px;
+  width: 7px;
+  height: 100%;
+  cursor: col-resize;
+  z-index: 6;
+  touch-action: none;
+  outline: none;
+}
+.sidebar-resizer::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 3px;
+  width: 1px;
+  background: transparent;
+  transition: background 0.15s;
+}
+.sidebar-resizer:hover::after,
+.sidebar-resizer:focus-visible::after,
+body.sidebar-resizing .sidebar-resizer::after {
+  background: var(--accent, #10a37f);
+}
+body.sidebar-resizing {
+  cursor: col-resize;
+  user-select: none;
+}
+body.sidebar-resizing .sidebar {
+  transition: none;
 }
 
 .sidebar-header {
@@ -166,6 +207,22 @@ body {
 .session-item .session-label {
   overflow: hidden;
   text-overflow: ellipsis;
+}
+/* Session timestamp: time today, date when older. Sits right of the label and
+   before the delete button, which keeps its space reserved when hidden. */
+.session-item .session-time {
+  flex-shrink: 0;
+  margin-left: auto;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-tertiary);
+  opacity: 0.85;
+}
+.session-item:hover .session-time {
+  opacity: 1;
+}
+.session-item .session-time + .session-delete {
+  margin-left: 0;
 }
 .session-item .session-delete {
   flex-shrink: 0;
@@ -1876,6 +1933,10 @@ body {
 /* ── Responsive ─────────────────────────────────────────────────────────── */
 @media (max-width: 900px) {
   .sidebar {
+    /* Mobile keeps the fixed 260px drawer; the resizer is desktop-only. */
+    width: 260px;
+    min-width: 260px;
+    max-width: 260px;
     position: fixed;
     left: 0;
     top: 0;
