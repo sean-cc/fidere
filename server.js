@@ -145,31 +145,33 @@ function refreshModelRegistry() {
 // The loader is the SDK's own discovery (project skills, extensions, prompts)
 // plus one inline extension: `images.js` re-encodes any screenshot an agent
 // reads down to a byte budget, so a day of UI debugging cannot grow the request
-// body until the provider refuses it. Built once; discovery does not depend on
-// which session asked for it.
-let agentResourceLoader;
-let agentResourceLoaderDone = false;
+// body until the provider refuses it.
+// One loader per working directory: AGENTS.md, project skills, prompts and
+// extensions are discovered relative to a cwd, and a session opened from
+// another project has to see that project's files, not this one's.
+const agentResourceLoaders = new Map();
 
-async function resourceLoaderForSession() {
-  if (agentResourceLoaderDone) return agentResourceLoader;
-  agentResourceLoaderDone = true;
+async function resourceLoaderForSession(cwd = CWD) {
+  const key = path.resolve(cwd);
+  if (agentResourceLoaders.has(key)) return agentResourceLoaders.get(key);
   const agentDir = getAgentDir();
+  let loader;
   try {
-    const loader = new DefaultResourceLoader({
-      cwd: CWD,
+    loader = new DefaultResourceLoader({
+      cwd: key,
       agentDir,
-      settingsManager: SettingsManager.create(CWD, agentDir),
+      settingsManager: SettingsManager.create(key, agentDir),
       extensionFactories: [{ name: 'fidere-images', factory: shrinkToolImages }],
     });
     await loader.reload();
-    agentResourceLoader = loader;
   } catch (err) {
     // Losing the image budget is bad; losing every session because of it is
     // worse. Fall back to the SDK's default loader.
-    console.warn(`Could not load agent extensions: ${err.message}`);
-    agentResourceLoader = undefined;
+    console.warn(`Could not load agent extensions for ${key}: ${err.message}`);
+    loader = undefined;
   }
-  return agentResourceLoader;
+  agentResourceLoaders.set(key, loader);
+  return loader;
 }
 
 async function sessionOptions(sessionManager) {
@@ -180,7 +182,11 @@ async function sessionOptions(sessionManager) {
     options.authStorage = authStorage;
     options.modelRegistry = modelRegistry;
   }
-  const loader = await resourceLoaderForSession();
+  let sessionCwd = CWD;
+  try {
+    sessionCwd = sessionManager.getCwd() || CWD;
+  } catch {}
+  const loader = await resourceLoaderForSession(sessionCwd);
   if (loader) options.resourceLoader = loader;
   return options;
 }
@@ -515,6 +521,13 @@ function readRawBody(req, limit = MAX_UPLOAD_BYTES) {
   });
 }
 
+/** Sort key from an isoTime() value; unparseable dates sort last. */
+function timestamp(iso) {
+  if (!iso) return 0;
+  const ms = Date.parse(iso);
+  return Number.isNaN(ms) ? 0 : ms;
+}
+
 // Coerce whatever a session listing hands back (Date, epoch ms, ISO string)
 // into an ISO string, so the browser always has something parseable.
 function isoTime(value) {
@@ -740,6 +753,37 @@ function formatMessages(messages, entryIdByMessage = null) {
 
 // ── Session helpers ────────────────────────────────────────────────────────
 
+// ── Session discovery ──────────────────────────────────────────────────────
+// pi keeps sessions in ~/.pi/agent/sessions/<encoded-cwd>/, so listing only the
+// current directory hid every conversation started somewhere else. Fidere is a
+// single workspace over all of them: the sidebar shows every session the user
+// has, and each one runs in the directory it was started in.
+async function listAllSessions() {
+  try {
+    return await SessionManager.listAll();
+  } catch (err) {
+    // One unreadable file in an unrelated project must not empty the sidebar.
+    console.warn(`Could not list sessions across projects: ${err.message}`);
+    return await SessionManager.list(CWD);
+  }
+}
+
+async function findSessionInfo(id) {
+  if (!id) return undefined;
+  const sessions = await listAllSessions();
+  return sessions.find(s => s.id === id);
+}
+
+/** True when the directory a session was started in is still there. */
+function sessionCwdExists(cwd) {
+  if (!cwd) return true; // pre-cwd sessions inherit this process's cwd
+  try {
+    return fs.statSync(cwd).isDirectory();
+  } catch {
+    return false;
+  }
+}
+
 async function getOrCreateSession(sessionId) {
   if (sessionId && activeSessions.has(sessionId)) {
     return activeSessions.get(sessionId);
@@ -758,7 +802,15 @@ async function getOrCreateSession(sessionId) {
 // another one. That replacement can be a much more expensive model, so the UI
 // must be able to show it instead of letting the switch go unnoticed.
 async function openSession(sessionPath) {
-  const sm = SessionManager.open(sessionPath);
+  let sm = SessionManager.open(sessionPath);
+  // Sessions outlive the folders they were started in. Refusing to open one
+  // whose cwd is gone would silently cut the history in half, so continue it
+  // here instead of failing.
+  const storedCwd = sm.getCwd();
+  if (!sessionCwdExists(storedCwd)) {
+    console.warn(`Session ${path.basename(sessionPath)} was started in ${storedCwd}, which no longer exists; continuing in ${CWD}`);
+    sm = SessionManager.open(sessionPath, path.dirname(sessionPath), CWD);
+  }
   const { session, modelFallbackMessage } = await createAgentSession(await sessionOptions(sm));
   const id = session.sessionId;
   activeSessions.set(id, { session, sessionManager: sm, modelFallbackMessage: modelFallbackMessage || null });
@@ -974,8 +1026,7 @@ const server = http.createServer(async (req, res) => {
 
       if (!entry && sid) {
         try {
-          const sessions = await SessionManager.list(CWD);
-          const found = sessions.find(s => s.id === sid);
+          const found = await findSessionInfo(sid);
           if (found) {
             const { id } = await openSession(found.path);
             entry = activeSessions.get(id);
@@ -1053,10 +1104,17 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // ── API: Which directory this server was launched in ──────────────────
+  // The sidebar needs it to tell "this project" apart from every other one.
+  if (p === '/api/workspace' && req.method === 'GET') {
+    sendJSON(res, 200, { cwd: CWD, name: path.basename(CWD) || CWD });
+    return;
+  }
+
   // ── API: List sessions ───────────────────────────────────────────────
   if (p === '/api/sessions' && req.method === 'GET') {
     try {
-      const sessions = await SessionManager.list(CWD);
+      const sessions = await listAllSessions();
       // The SDK's SessionInfo names these `path`, `created` and `modified`
       // (Date objects). Older names are kept as fallbacks so the list keeps
       // working if the SDK ever renames them again — when this mapping drops
@@ -1067,10 +1125,16 @@ const server = http.createServer(async (req, res) => {
         label: s.name || '',
         firstMessage: stripAttachmentMarkers(s.firstMessage || '').replace(/\s+/g, ' ').slice(0, 160),
         messageCount: s.messageCount || 0,
+        // Empty for sessions created before the SDK recorded a cwd; those
+        // run in whichever directory this process was launched from.
         cwd: s.cwd || CWD,
+        cwdExists: sessionCwdExists(s.cwd),
         created: isoTime(s.created),
         updatedAt: isoTime(s.modified ?? s.updatedAt ?? s.mtime),
       }));
+      // Most recent first, across every project. The sidebar and the startup
+      // "open the latest session" both rely on this order.
+      formatted.sort((a, b) => timestamp(b.updatedAt) - timestamp(a.updatedAt));
       sendJSON(res, 200, formatted);
     } catch (err) {
       sendJSON(res, 500, { error: err.message });
@@ -1105,8 +1169,7 @@ const server = http.createServer(async (req, res) => {
       // A turn only runs inside a session this process has open, so a session
       // that is not loaded here is not generating. Confirm the id exists so a
       // stale one gets a 404 instead of a hopeful false.
-      const sessions = await SessionManager.list(CWD);
-      if (!sessions.some(s => s.id === statusMatch[1])) {
+      if (!(await findSessionInfo(statusMatch[1]))) {
         sendJSON(res, 404, { error: 'Session not found' });
         return;
       }
@@ -1125,8 +1188,7 @@ const server = http.createServer(async (req, res) => {
       let entry = activeSessions.get(sessionMatch[1]);
       if (!entry) {
         // Try to load from file
-        const sessions = await SessionManager.list(CWD);
-        const found = sessions.find(s => s.id === sessionMatch[1]);
+        const found = await findSessionInfo(sessionMatch[1]);
         if (!found) { sendJSON(res, 404, { error: 'Session not found' }); return; }
         const { id } = await openSession(found.path);
         entry = activeSessions.get(id);
@@ -1143,8 +1205,13 @@ const server = http.createServer(async (req, res) => {
       // silently picks another one (possibly far more expensive). Report it so
       // the UI can show the swap above the transcript.
       const modelFallbackMessage = entry.modelFallbackMessage || null;
+      // The session's own working directory: sessions opened here may have been
+      // started in another project, and the tools run there.
+      let sessionCwd = CWD;
+      try { sessionCwd = entry.session.sessionManager.getCwd() || CWD; } catch {}
       sendJSON(res, 200, {
         sessionId: entry.session.sessionId,
+        cwd: sessionCwd,
         messages: msgs,
         isStreaming: entry.session.isStreaming,
         model: m?.name || m?.id || 'unknown',
@@ -1170,8 +1237,7 @@ const server = http.createServer(async (req, res) => {
     try {
       let entry = activeSessions.get(branchMatch[1]);
       if (!entry) {
-        const sessions = await SessionManager.list(CWD);
-        const found = sessions.find(s => s.id === branchMatch[1]);
+        const found = await findSessionInfo(branchMatch[1]);
         if (!found) { sendJSON(res, 404, { error: 'Session not found' }); return; }
         const { id } = await openSession(found.path);
         entry = activeSessions.get(id);
@@ -1209,8 +1275,9 @@ const server = http.createServer(async (req, res) => {
         const opened = await openSession(branchPath);
         sessionId = opened.id;
       } else {
-        // Editing the first message: start a fresh session with the same model.
-        const sm = SessionManager.create(CWD);
+        // Editing the first message: start a fresh session with the same model,
+        // in the same project, so the edit does not silently move the chat.
+        const sm = SessionManager.create(manager.getCwd() || CWD);
         const { session } = await createAgentSession({
           ...(await sessionOptions(sm)),
           model: entry.session.model,
@@ -1239,8 +1306,7 @@ const server = http.createServer(async (req, res) => {
       let entry = activeSessions.get(modelMatch[1]);
       if (!entry) {
         // Try to load from file
-        const sessions = await SessionManager.list(CWD);
-        const found = sessions.find(s => s.id === modelMatch[1]);
+        const found = await findSessionInfo(modelMatch[1]);
         if (!found) { sendJSON(res, 404, { error: 'Session not found' }); return; }
         const { id } = await openSession(found.path);
         entry = activeSessions.get(id);
@@ -1608,8 +1674,7 @@ const server = http.createServer(async (req, res) => {
     }
     // Also try to delete the file
     try {
-      const sessions = await SessionManager.list(CWD);
-      const found = sessions.find(s => s.id === sid);
+      const found = await findSessionInfo(sid);
       if (found) {
         if (found.path) fs.unlinkSync(found.path);
       }

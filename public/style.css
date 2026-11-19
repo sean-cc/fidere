@@ -208,6 +208,32 @@ body.sidebar-resizing .sidebar {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+/* Project caption: history is global, so the list is grouped by the directory
+   each session was started in. Only the caption, not every row, carries it. */
+.session-group {
+  padding: 10px 12px 4px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  opacity: 0.75;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  user-select: none;
+}
+.session-group:first-child {
+  padding-top: 2px;
+}
+.session-group.current {
+  color: var(--text-secondary);
+  opacity: 1;
+}
+.session-group.missing {
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+}
 /* Session timestamp: time today, date when older. Sits right of the label and
    before the delete button, which keeps its space reserved when hidden. */
 .session-item .session-time {

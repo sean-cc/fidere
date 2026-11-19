@@ -78,6 +78,8 @@ const en = {
   'sessions.stillGenerating': 'This session is still generating. It will refresh when finished.',
   'sessions.count': { one: '{count} message', other: '{count} messages' },
   'sessions.modelLabel': 'Model: {model}',
+  'sessions.runsIn': 'This chat runs in {path}',
+  'sessions.cwdMissing': 'Its folder no longer exists',
   'sessions.info': {
     one: 'Session {id} · model: {model} · {count} message',
     other: 'Session {id} · model: {model} · {count} messages',
@@ -251,6 +253,8 @@ const zhCN = {
   'sessions.stillGenerating': '该会话仍在生成中，完成后会自动刷新。',
   'sessions.count': '{count} 条消息',
   'sessions.modelLabel': '模型：{model}',
+  'sessions.runsIn': '此会话的工作目录：{path}',
+  'sessions.cwdMissing': '目录已不存在',
   'sessions.info': '会话 {id} · 模型：{model} · {count} 条消息',
 
   'chat.welcome': '基于 pi agent 构建的小型智能体工作台',
@@ -412,6 +416,8 @@ const zhTW = {
   'sessions.stillGenerating': '此工作階段仍在產生回覆，完成後會自動重新整理。',
   'sessions.count': '{count} 則訊息',
   'sessions.modelLabel': '模型：{model}',
+  'sessions.runsIn': '此工作階段的工作目錄：{path}',
+  'sessions.cwdMissing': '目錄已不存在',
   'sessions.info': '工作階段 {id} · 模型：{model} · {count} 則訊息',
 
   'chat.welcome': '以 pi agent 打造的小型代理工作區',
@@ -573,6 +579,8 @@ const zhHK = {
   'sessions.stillGenerating': '此工作階段仍在產生回覆，完成後會自動重新整理。',
   'sessions.count': '{count} 個訊息',
   'sessions.modelLabel': '模型：{model}',
+  'sessions.runsIn': '此工作階段的工作目錄：{path}',
+  'sessions.cwdMissing': '目錄已不存在',
   'sessions.info': '工作階段 {id} · 模型：{model} · {count} 個訊息',
 
   'chat.welcome': '以 pi agent 打造的小型代理工作區',
@@ -734,6 +742,8 @@ const ja = {
   'sessions.stillGenerating': 'このセッションはまだ生成中です。完了すると更新されます。',
   'sessions.count': '{count}件のメッセージ',
   'sessions.modelLabel': 'モデル: {model}',
+  'sessions.runsIn': 'このチャットの作業ディレクトリ: {path}',
+  'sessions.cwdMissing': 'フォルダーは存在しません',
   'sessions.info': 'セッション {id} · モデル: {model} · {count}件のメッセージ',
 
   'chat.welcome': 'pi agent で構築された小さなエージェントワークスペース',
@@ -895,6 +905,8 @@ const ko = {
   'sessions.stillGenerating': '이 세션은 아직 생성 중입니다. 완료되면 새로고침됩니다.',
   'sessions.count': '메시지 {count}개',
   'sessions.modelLabel': '모델: {model}',
+  'sessions.runsIn': '이 대화의 작업 폴더: {path}',
+  'sessions.cwdMissing': '폴더가 더 이상 없습니다',
   'sessions.info': '세션 {id} · 모델: {model} · 메시지 {count}개',
 
   'chat.welcome': 'pi agent로 만든 작은 에이전트 워크스페이스',
@@ -1061,6 +1073,8 @@ const ru = {
     other: '{count} сообщения',
   },
   'sessions.modelLabel': 'Модель: {model}',
+  'sessions.runsIn': 'Рабочая папка этого чата: {path}',
+  'sessions.cwdMissing': 'Папка больше не существует',
   'sessions.info': 'Сессия {id} · модель: {model} · сообщений: {count}',
 
   'chat.welcome': 'Небольшое рабочее пространство агента на базе pi agent',

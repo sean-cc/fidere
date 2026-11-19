@@ -121,6 +121,7 @@ fidere/
 - Streaming text is coalesced to at most one render per animation frame. Tool blocks are resolved by `data-tool-id` so they survive innerHTML rebuilds.
 - The details toggle adds `details-collapsed` to one `.msg-assistant`; CSS hides its `.thinking-block`, `.tool-block` and details-only steps. A live reply is expanded and collapses when the turn ends. Toggle state is captured/restored across `renderAllMessages`.
 - Token usage comes from the provider. Cost is looked up by the model's actual endpoint: vendor prices are re-fetched for endpoints with an adapter (DeepSeek, OpenRouter, GLM, Anthropic, HuggingFace, Moonshot, Aliyun), while proxy/other endpoints use the SDK/model `models.json` cost. Currency is preserved end-to-end; the CNY tooltip is an approximate conversion, configurable with `fidere-usd-cny` in localStorage.
+- History is global, not per launch directory. pi stores sessions in `~/.pi/agent/sessions/<encoded-cwd>/`, so `SessionManager.list(CWD)` showed only the conversations started in one folder. `listAllSessions()` (`SessionManager.listAll()`) feeds `/api/sessions`, every id lookup uses `findSessionInfo()`, and `openSession()` keeps the session's own cwd so its tools still run in the project it belongs to. `resourceLoaderForSession(cwd)` caches one resource loader per directory for the same reason (AGENTS.md, project skills and extensions are discovered relative to a cwd). A session whose recorded directory no longer exists is opened with `cwdOverride = CWD` instead of failing; the sidebar groups rows under the project name and strikes through missing folders. Only a *new* session uses `CWD` — and startup resumes the latest session *of this directory* when there is one, falling back to the most recent overall.
 - Reopening a session whose recorded model is gone makes the SDK silently substitute another one. `openSession()` keeps the SDK's `modelFallbackMessage` on the active-session entry, `GET /api/sessions/:id` returns it, and the UI shows it above the transcript once per session per page load — the substitute can be several times more expensive, so it must not only live in the sidebar.
 - The model of a new session is decided in this order: `defaultProvider`/`defaultModel` from `~/.pi/agent/settings.json`, then `default-models.js`, then the SDK's own `defaultModelPerProvider` table. The override exists because the SDK table picks `deepseek-v4-pro` — 4.4x the input price of `deepseek-flash` and text-only — for a fresh install with no saved default. `npm run setup` writes the picked model into settings.json, `POST /api/models/default` does the same from the model picker ("set default"), and `/api/models` reports the resulting choice as `defaultModel` with its `source` (`settings` or `recommended`).
 
@@ -309,9 +310,10 @@ only and is skipped on Linux.
 | GET | `/api/prices` | Official price catalog status (last check, model count, errors) |
 | GET | `/api/models` | Available models, grouped by provider, plus `defaultModel` |
 | POST | `/api/models/default` | Save `{provider, modelId}` as the default for new sessions |
-| GET | `/api/sessions` | List sessions |
+| GET | `/api/workspace` | `{cwd, name}` for the directory this server was launched in |
+| GET | `/api/sessions` | List sessions across every project, most recent first; each row carries `cwd` and `cwdExists` |
 | POST | `/api/sessions` | Create a session |
-| GET | `/api/sessions/:id` | Session info and messages, plus `modelFallbackMessage` when the SDK had to swap the session's model |
+| GET | `/api/sessions/:id` | Session info, its own `cwd`, and messages, plus `modelFallbackMessage` when the SDK had to swap the session's model |
 | GET | `/api/commands?sessionId=:id` | Slash commands |
 | POST | `/api/sessions/:id/prompt` | Send a prompt (SSE) |
 | POST | `/api/sessions/:id/branch` | Branch from a historical user entry |

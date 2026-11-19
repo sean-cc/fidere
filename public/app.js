@@ -43,6 +43,9 @@ const state = {
   noticeSessionId: null, // session whose model-swap notice was already shown
   modelCollapsedProviders: null, // Set of provider ids hidden in the picker
   sessionPickerSessions: [],
+  // Directory this fidere was launched in. Sessions are listed from every
+  // project, so the UI needs to know which ones belong to "here".
+  workspace: null,        // { cwd, name } from /api/workspace
   slash: {
     open: false,
     mode: 'commands',    // commands | models | skills | prompts
@@ -1116,6 +1119,25 @@ async function loadSessionList() {
   }
 }
 
+// History is global: pi stores sessions per working directory, so every
+// session carries the project it was started in. The sidebar groups by it, and
+// the transcript notes it when it is not this server's directory.
+function sessionProjectTag(session) {
+  const cwd = session?.cwd || '';
+  if (!cwd) return null;
+  return {
+    name: cwd.split('/').filter(Boolean).pop() || cwd,
+    missing: session.cwdExists === false,
+    cwd,
+    current: cwd === (state.workspace?.cwd || ''),
+  };
+}
+
+function sessionProjectTitle(tag) {
+  if (!tag) return '';
+  return tag.missing ? `${tag.cwd} (${t('sessions.cwdMissing')})` : tag.cwd;
+}
+
 // Sidebar-sized timestamp: the time for today, the date for anything older.
 // Full value stays in the tooltip. Language-neutral (Intl only), so it needs
 // no i18n strings.
@@ -1145,6 +1167,10 @@ function renderSessionList(sessions) {
     sessionList.innerHTML = `<div class="session-item" style="opacity:0.5">${escapeHtml(t('sessions.empty'))}</div>`;
     return;
   }
+  // Time-ordered across every project, so instead of tagging each row with its
+  // project (69 badges is noise) the list is broken by a small caption whenever
+  // the project changes.
+  let prevCwd = null;
   sessionList.innerHTML = sessions.map(s => {
     const label = s.label || escapeHtml(s.firstMessage || '').slice(0, 50) || s.id.slice(0, 8);
     const active = s.id === state.sessionId ? ' active' : '';
@@ -1154,7 +1180,18 @@ function renderSessionList(sessions) {
     const stampTitle = stampDate && !Number.isNaN(stampDate.getTime())
       ? ` title="${escapeAttr(stampDate.toLocaleString(getLocale()))}"`
       : '';
-    return `
+    const tag = sessionProjectTag(s);
+    let group = '';
+    if (tag && tag.cwd !== prevCwd) {
+      prevCwd = tag.cwd;
+      const classes = ['session-group'];
+      if (tag.missing) classes.push('missing');
+      if (tag.current) classes.push('current');
+      group = `<div class="${classes.join(' ')}" title="${escapeAttr(sessionProjectTitle(tag))}">${escapeHtml(tag.name)}</div>`;
+    } else if (!tag && prevCwd !== null) {
+      prevCwd = null;
+    }
+    return `${group}
       <div class="session-item${active}" data-sid="${s.id}" onclick="switchSession('${s.id}')">
         <span class="session-icon">💬</span>
         <span class="session-label" title="${escapeHtml(s.firstMessage || s.id)}">${label}</span>
@@ -1370,7 +1407,7 @@ function renderSessionPicker() {
   const query = sessionSearch.value.trim().toLowerCase();
   const sessions = (state.sessionPickerSessions || []).filter((s) => {
     if (!query) return true;
-    return `${s.label || ''} ${s.firstMessage || ''} ${s.id || ''}`.toLowerCase().includes(query);
+    return `${s.label || ''} ${s.firstMessage || ''} ${s.id || ''} ${s.cwd || ''}`.toLowerCase().includes(query);
   });
 
   if (!sessions.length) {
@@ -1382,7 +1419,9 @@ function renderSessionPicker() {
     const label = s.label || s.firstMessage || String(s.id || '').slice(0, 12);
     const date = s.updatedAt ? new Date(s.updatedAt) : null;
     const updated = date && !Number.isNaN(date.getTime()) ? date.toLocaleString(getLocale()) : '';
-    const meta = `${t('sessions.count', { count: s.messageCount || 0 })}${updated ? ' · ' + updated : ''}`;
+    const tag = sessionProjectTag(s);
+    const project = tag ? ` · ${tag.name}${tag.missing ? ' (⚠)' : ''}` : '';
+    const meta = `${t('sessions.count', { count: s.messageCount || 0 })}${project}${updated ? ' · ' + updated : ''}`;
     const active = s.id === state.sessionId ? ' active' : '';
     return `<button type="button" class="resume-item${active}" data-sid="${escapeHtml(s.id)}">
       <span class="resume-icon">💬</span>
@@ -1405,24 +1444,31 @@ async function loadModelInfo() {
     const modelName = data.model || 'unknown';
     state.currentModel = data.currentModel || { provider: '', id: modelName, name: modelName };
     sidebarModel.textContent = t('sessions.modelLabel', { model: modelName });
-    updateSessionNotice(data.modelFallbackMessage);
+    updateSessionNotice(data.modelFallbackMessage, data.cwd);
     renderAttachmentTray();
   } catch {}
 }
 
-// A reopened session may run on a different model than the one recorded in its
-// file (the old one was removed or lost its key). That replacement can cost
-// several times more per token, so it is stated above the transcript instead of
-// hiding in the sidebar. Shown once per session per page load.
-function updateSessionNotice(message) {
-  if (!message) {
+// Two things about a reopened session can surprise the reader, and both are
+// stated above the transcript once per session per page load: it may run on a
+// different model than the one recorded in its file (the old one was removed or
+// lost its key, and the replacement can cost several times more per token), and
+// it may run in a different project directory than this server.
+function updateSessionNotice(message, sessionCwd) {
+  const notes = [];
+  const workspaceCwd = state.workspace?.cwd;
+  if (sessionCwd && workspaceCwd && sessionCwd !== workspaceCwd) {
+    notes.push(t('sessions.runsIn', { path: sessionCwd }));
+  }
+  if (message) notes.push(message);
+  if (!notes.length) {
     sessionNotice.classList.add('hidden');
     sessionNoticeText.textContent = '';
     return;
   }
   if (state.noticeSessionId === state.sessionId) return;
   state.noticeSessionId = state.sessionId;
-  sessionNoticeText.textContent = message;
+  sessionNoticeText.textContent = notes.join(' · ');
   sessionNotice.classList.remove('hidden');
 }
 
@@ -3222,12 +3268,17 @@ async function init() {
   }
 
   try {
+    // Which project this server runs in: the session list spans all of them.
+    state.workspace = await apiJSON('GET', 'api/workspace').catch(() => null);
     // Try to get existing sessions
     const sessions = await apiJSON('GET', 'api/sessions');
     if (sessions && sessions.length > 0) {
-      // Use the most recent session
-      // sessions are sorted most-recent-first from server
-      const recentSession = sessions[0];
+      // The list covers every project (sorted most-recent-first by the server).
+      // Resume the latest conversation from this directory when there is one,
+      // so launching fidere somewhere new does not silently drop the user into
+      // another project's session.
+      const here = state.workspace?.cwd;
+      const recentSession = sessions.find(s => here && s.cwd === here) || sessions[0];
       await switchSession(recentSession.id);
     } else {
       await createNewSession();

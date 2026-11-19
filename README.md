@@ -53,7 +53,7 @@ New sessions start on a model you can see and change. If a reopened session had 
 - **Live streaming** — thinking and tool calls stream in live, fold when a reply finishes, and reopen per reply.
 - **Timeline jump-back** — the timeline on the right jumps to an earlier prompt in one click; reading history doesn't pull you to the bottom.
 - **Branching edits and recovery** — edit an earlier message and resend it on a new branch; copy replies, retry a rejected prompt, recover after a dropped stream.
-- **Session and model management** — manage sessions, switch models, set the model new sessions start on, attach images and files.
+- **Session and model management** — every session from every project in one list, whatever directory fidere was launched from; switch models, set the model new sessions start on, attach images and files.
 - **Seven interface languages** — English, 简体中文, 繁體中文 (台灣 / 香港), 日本語, 한국어 and Русский.
 - **Command palette** — one `/` palette for commands, models, skills and prompt templates ([shortcuts](#keyboard-shortcuts)).
 - **Keep a Mac awake** — optional `caffeinate` assertion during long tasks.
