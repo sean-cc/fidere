@@ -684,6 +684,32 @@ function formatMessages(messages, entryIdByMessage = null) {
   for (const msg of messages) {
     if (!msg || !msg.role) continue;
     const role = msg.role;
+
+    // The system prompt carries its text in `sections`, never in `content`. It
+    // is not a turn, and rendering it as one put an empty "F" bubble at the top
+    // of every reloaded session.
+    if (role === 'system') continue;
+
+    // A compaction (or branch) snapshot keeps its text in `summary`, so it used
+    // to arrive as a second empty bubble. Forward it under its own role and
+    // carry the text through, so the UI can render a card instead of a blank.
+    if (role === 'compactionSummary' || role === 'branchSummary') {
+      result.push({
+        id: msg.id || crypto.randomUUID(),
+        entryId: entryIdByMessage?.get(msg) || null,
+        role: 'summary',
+        kind: role === 'branchSummary' ? 'branch' : 'compaction',
+        content: '',
+        summary: typeof msg.summary === 'string' ? msg.summary : '',
+        tokensBefore: Number(msg.tokensBefore) || 0,
+        toolCalls: [],
+        thinking: '',
+        images: [],
+        usage: null,
+        timestamp: msg.timestamp || new Date().toISOString(),
+      });
+      continue;
+    }
     let content = '';
     let toolCalls = [];
     let thinking = '';

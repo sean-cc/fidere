@@ -103,6 +103,8 @@ const en = {
   'chat.dismiss': 'Dismiss',
 
   'msg.copy': 'Copy message text',
+  'msg.compacted': 'Compacted from {count} tokens',
+  'msg.summarised': 'Earlier turns summarised',
   'msg.details': 'Thinking &amp; tools',
   'msg.edit': 'Edit',
   'msg.editTitle': 'Edit and resend this message',
@@ -275,6 +277,8 @@ const zhCN = {
   'chat.dismiss': '关闭',
 
   'msg.copy': '复制消息文本',
+  'msg.compacted': '已压缩 {count} tokens 的上下文',
+  'msg.summarised': '早前对话已摘要',
   'msg.details': '思考与工具',
   'msg.edit': '编辑',
   'msg.editTitle': '编辑并重新发送此消息',
@@ -438,6 +442,8 @@ const zhTW = {
   'chat.dismiss': '關閉',
 
   'msg.copy': '複製訊息文字',
+  'msg.compacted': '已壓縮 {count} tokens 的上下文',
+  'msg.summarised': '早前對話已摘要',
   'msg.details': '思考與工具',
   'msg.edit': '編輯',
   'msg.editTitle': '編輯並重新傳送此訊息',
@@ -601,6 +607,8 @@ const zhHK = {
   'chat.dismiss': '關閉',
 
   'msg.copy': '複製訊息文字',
+  'msg.compacted': '已壓縮 {count} tokens 嘅上下文',
+  'msg.summarised': '早前對話已摘要',
   'msg.details': '思考與工具',
   'msg.edit': '編輯',
   'msg.editTitle': '編輯並重新傳送此訊息',
@@ -764,6 +772,8 @@ const ja = {
   'chat.dismiss': '閉じる',
 
   'msg.copy': 'メッセージ本文をコピー',
+  'msg.compacted': '{count} トークンを圧縮しました',
+  'msg.summarised': '以前の会話は要約されました',
   'msg.details': '思考とツール',
   'msg.edit': '編集',
   'msg.editTitle': 'このメッセージを編集して再送信',
@@ -927,6 +937,8 @@ const ko = {
   'chat.dismiss': '닫기',
 
   'msg.copy': '메시지 텍스트 복사',
+  'msg.compacted': '{count} 토큰을 압축했습니다',
+  'msg.summarised': '이전 대화가 요약되었습니다',
   'msg.details': '사고와 도구',
   'msg.edit': '편집',
   'msg.editTitle': '이 메시지를 편집해 다시 보내기',
@@ -1095,6 +1107,8 @@ const ru = {
   'chat.dismiss': 'Скрыть',
 
   'msg.copy': 'Скопировать текст сообщения',
+  'msg.compacted': 'Сжато {count} токенов',
+  'msg.summarised': 'Предыдущие ходы обобщены',
   'msg.details': 'Размышления и инструменты',
   'msg.edit': 'Изменить',
   'msg.editTitle': 'Изменить и отправить это сообщение заново',

@@ -116,12 +116,50 @@ export function createMessageStep(msg) {
   return step;
 }
 
+// A compaction (or branch) snapshot: one collapsed card instead of a bubble.
+// The summary can be long, so it stays folded until the reader asks for it.
+function createSummaryElement(msg) {
+  const div = document.createElement('div');
+  div.className = 'msg msg-summary';
+  if (msg.id) div.dataset.id = msg.id;
+
+  const tokens = Number(msg.tokensBefore) || 0;
+  const tag = msg.kind === 'branch' ? 'branch' : 'compaction';
+  const line = tokens
+    ? t('msg.compacted', { count: tokens.toLocaleString() })
+    : t('msg.summarised');
+
+  div.innerHTML = `
+    <div class="msg-content summary-card">
+      <button class="summary-head" type="button" aria-expanded="false">
+        <span class="summary-tag">${escapeHtml(tag)}</span>
+        <span class="summary-line">${escapeHtml(line)}</span>
+        <span class="summary-chevron" aria-hidden="true">▸</span>
+      </button>
+      <div class="summary-body hidden">${msg.summary ? renderMarkdown(msg.summary) : ''}</div>
+    </div>`;
+
+  const head = div.querySelector('.summary-head');
+  const body = div.querySelector('.summary-body');
+  head.addEventListener('click', () => {
+    const opening = body.classList.contains('hidden');
+    body.classList.toggle('hidden', !opening);
+    head.setAttribute('aria-expanded', String(opening));
+    div.classList.toggle('open', opening);
+  });
+  return div;
+}
+
 export function createMessageElement(msg) {
+  if (msg.role === 'summary') return createSummaryElement(msg);
+
   const div = document.createElement('div');
   div.className = `msg msg-${msg.role}`;
   div.dataset.id = msg.id;
 
-  const isAssistant = msg.role !== 'user';
+  // Only a real assistant turn gets the F badge and the collapsible details.
+  // Anything else (a stray role) must not masquerade as one.
+  const isAssistant = msg.role === 'assistant';
   const avatar = isAssistant ? 'F' : 'U';
 
   // Reasoning and tool calls are collapsed by default once a reply is done.
