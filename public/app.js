@@ -2,7 +2,7 @@ import { escapeHtml, renderMarkdown } from './markdown.js';
 import { createSSEParser } from './sse.js';
 import { createRuler } from './ruler.js';
 import { formatBytes, attachmentIsImage, attachmentLabel, escapeAttr } from './util.js';
-import { parseAttachmentMessage, renderToolCall, renderThinking, createMessageElement, createMessageStep } from './messages.js';
+import { parseAttachmentMessage, renderToolCall, renderThinking, renderToolImages, createMessageElement, createMessageStep } from './messages.js';
 import { t, getLocale, getLocaleInfo, LOCALES, setLocale } from './i18n.js';
 
 // ── Theme ───────────────────────────────────────────────────────────────────
@@ -2085,6 +2085,7 @@ function handleSSEEvent(type, data, ctx) {
         }
         tb.result = data.output || '';
         tb.streamOutput = '';
+        tb.images = data.images || [];
 
         // Add/replace result in body, reusing the streaming output node if any.
         const body = liveEl?.querySelector('.tool-body');
@@ -2100,6 +2101,13 @@ function handleSSEEvent(type, data, ctx) {
           resultPre.dataset.type = 'result';
           const code = resultPre.querySelector('code');
           if (code) code.textContent = String(data.output).slice(0, 8000);
+        }
+
+        // A tool that returned a picture: the live path has to draw it too, or
+        // the image only appears after a reload.
+        if (body && Array.isArray(data.images) && data.images.length
+            && !body.querySelector('.tool-images')) {
+          body.insertAdjacentHTML('beforeend', renderToolImages(data.images));
         }
 
         // Auto-toggle tool body

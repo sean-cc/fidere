@@ -597,6 +597,22 @@ function blockToText(block) {
   return '';
 }
 
+// The image blocks of a tool result, kept whole. `read` returns a screenshot as
+// a content block, so a transcript that only ran extractToolOutput() showed
+// "[image]" and nothing else: the picture was in the message the whole time and
+// never reached the browser.
+function extractToolImages(result) {
+  const blocks = Array.isArray(result?.content) ? result.content
+    : Array.isArray(result) ? result : [];
+  const out = [];
+  for (const block of blocks){
+    if (!block || block.type !== 'image' || typeof block.data !== 'string') continue;
+    const mimeType = block.mimeType || block.source?.mediaType || 'image/png';
+    out.push({ mimeType, data: block.data, dataUrl: `data:${mimeType};base64,${block.data}` });
+  }
+  return out;
+}
+
 // Extract readable text from a tool result. The agent emits results as
 // { content: [{ type: 'text', text }], details }, while older/other shapes
 // may be a string, an array of blocks, or { output }.
@@ -722,6 +738,7 @@ function formatMessages(messages, entryIdByMessage = null) {
       const tc = msg.toolCallId ? toolCallsById.get(msg.toolCallId) : null;
       if (tc) {
         tc.result = extractToolOutput({ content: msg.content });
+        tc.images = extractToolImages({ content: msg.content });
         tc.isError = Boolean(msg.isError);
       }
       continue;
@@ -739,6 +756,7 @@ function formatMessages(messages, entryIdByMessage = null) {
             name: block.name,
             input: block.arguments ?? block.input ?? {},
             result: null,
+            images: [],
             isError: false,
           };
           toolCalls.push(tc);
@@ -1575,6 +1593,7 @@ const server = http.createServer(async (req, res) => {
             toolCallId: event.toolCallId,
             isError: event.isError || false,
             output: extractToolOutput(event.result ?? event.output),
+            images: extractToolImages(event.result ?? event.output),
             details: event.result?.details ?? event.details ?? {},
           });
           currentToolName = '';

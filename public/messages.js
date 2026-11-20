@@ -67,19 +67,42 @@ export function renderToolCall(tc, index) {
     output = t('tools.hidden', { count: output.length - 12000 }) + '\n' + output.slice(-12000);
   }
   const outputType = tc.result !== null ? 'result' : 'output';
+  const imagesHtml = renderToolImages(tc.images);
+  // A tool that returned a picture opens on it. Collapsing is right for a page
+  // of stdout; it is wrong when the result *is* the one thing worth looking at.
+  const hasImages = Boolean(imagesHtml);
+  const open = tc.result === null || hasImages;
   return `
     <div class="tool-block" data-tool-index="${index}" data-tool-id="${escapeAttr(tc.id ?? '')}">
-      <div class="tool-header${tc.result === null ? ' open' : ''}" onclick="toggleToolBlock(this)">
+      <div class="tool-header${open ? ' open' : ''}" onclick="toggleToolBlock(this)">
         <span class="tool-icon">🔧</span>
         <span class="tool-name">${escapeHtml(title)}</span>
         <span class="tool-status ${statusClass}">${statusText}</span>
         <span class="tool-chevron">▶</span>
       </div>
-      <div class="tool-body${tc.result !== null ? '' : ' open'}">
+      <div class="tool-body${open ? ' open' : ''}">
         <pre><code>${escapeHtml(JSON.stringify(tc.input || {}, null, 2))}</code></pre>
+        ${imagesHtml}
         ${output ? `<pre data-type="${outputType}"><code>${escapeHtml(output)}</code></pre>` : ''}
       </div>
     </div>`;
+}
+
+/* A screenshot a tool returned. Shown as a thumbnail with its real size in the
+ * caption, link opens the full frame in a new tab: the agent reads images to
+ * answer a question, and the answer is unreadable if the picture stays a
+ * `[image]` placeholder. */
+export function renderToolImages(images) {
+  if (!Array.isArray(images) || !images.length) return '';
+  const cards = images.map((img, i) => {
+    const url = img.dataUrl || (img.data ? `data:${img.mimeType || 'image/png'};base64,${img.data}` : '');
+    if (!url) return '';
+    const mime = escapeHtml(img.mimeType || 'image');
+    return `<a class="tool-image" href="${escapeAttr(url)}" target="_blank" rel="noopener noreferrer" title="${mime}">
+      <img src="${escapeAttr(url)}" alt="${escapeAttr('image ' + (i + 1))}" loading="lazy" decoding="async">
+    </a>`;
+  }).filter(Boolean).join('');
+  return cards ? `<div class="tool-images">${cards}</div>` : '';
 }
 
 export function renderThinking(thinking) {
