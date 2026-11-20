@@ -1456,6 +1456,41 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // ── API: Serve a local image the agent referred to ───────────────────
+  // The agent reads files by absolute path, so a markdown image in its reply
+  // carries a filesystem path, not a URL. Images only, size-capped, and the
+  // path must be absolute: this is a viewer, not a file browser.
+  if (p === '/api/local' && (req.method === 'GET' || req.method === 'HEAD')) {
+    const raw = url.searchParams.get('path') || '';
+    if (!raw || raw.includes('\0') || raw.includes('..') || !path.isAbsolute(raw)) {
+      sendJSON(res, 400, { error: 'Invalid path' });
+      return;
+    }
+    const ext = path.extname(raw).toLowerCase();
+    const type = MIME[ext];
+    if (!type || !type.startsWith('image/')) {
+      sendJSON(res, 415, { error: 'Not an image' });
+      return;
+    }
+    fs.stat(raw, (err, st) => {
+      if (err || !st.isFile()) { sendJSON(res, 404, { error: 'Not found' }); return; }
+      if (st.size > 32 * 1024 * 1024) { sendJSON(res, 413, { error: 'Image too large' }); return; }
+      res.writeHead(200, {
+        'Content-Type': type,
+        'Content-Length': st.size,
+        // The agent may re-shoot the same filename; a short TTL keeps a
+        // refreshed still from being served out of the disk cache forever.
+        'Cache-Control': 'private, max-age=5',
+        'X-Content-Type-Options': 'nosniff',
+      });
+      if (req.method === 'HEAD') { res.end(); return; }
+      const stream = fs.createReadStream(raw);
+      stream.on('error', () => res.destroy());
+      stream.pipe(res);
+    });
+    return;
+  }
+
   // ── API: Serve an uploaded attachment ────────────────────────────────
   if (p.startsWith('/api/uploads/') && req.method === 'GET') {
     let name = '';

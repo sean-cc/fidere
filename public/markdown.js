@@ -18,6 +18,19 @@ export function renderMarkdown(text) {
     return `\x00CODEBLOCK${idx}\x00`;
   });
 
+  // Images are extracted before the escape pass: the source may be a
+  // filesystem path, which becomes a request to /api/local. Rendering them
+  // inline is the difference between an agent saying "look at this" and the
+  // reader actually seeing it.
+  const images = [];
+  // Spaces are allowed inside the parentheses: a screenshot path on this
+  // machine can contain one ("My Pics/…"), and encodeURIComponent handles it.
+  processed = processed.replace(/!\[([^\]]*)\]\(([^)\n]+)\)/g, (_, alt, src) => {
+    const idx = images.length;
+    images.push({ alt, src: src.trim() });
+    return `\x00IMAGE${idx}\x00`;
+  });
+
   // Tables are extracted from raw text too; cells are escaped later by
   // renderInline so cell-level markdown still works.
   const tables = [];
@@ -101,6 +114,12 @@ export function renderMarkdown(text) {
   processed = processed.replace(/\x00LIST(\d+)\x00/g, (_, idx) => lists[parseInt(idx)]);
   processed = processed.replace(/\x00TABLE(\d+)\x00/g, (_, idx) => renderTable(tables[parseInt(idx)]));
 
+  // Restore images. A token that ended up alone in a paragraph has its <p>
+  // dropped for the same reason a table does: the wrapper adds a line of
+  // leading between it and the sentence above.
+  processed = processed.replace(/<p>\s*\x00IMAGE(\d+)\x00\s*<\/p>/g, '\x00IMAGE$1\x00');
+  processed = processed.replace(/\x00IMAGE(\d+)\x00/g, (_, idx) => renderImage(images[parseInt(idx, 10)]));
+
   // Restore code blocks, using the raw code for both display and copy.
   processed = processed.replace(/\x00CODEBLOCK(\d+)\x00/g, (_, idx) => {
     const block = codeBlocks[parseInt(idx)];
@@ -120,6 +139,31 @@ export function renderMarkdown(text) {
   processed = processed.replace(/<p>\s*<\/p>/g, '');
 
   return processed;
+}
+
+/* Where an <img src> should point. Absolute URLs and data URIs are passed
+ * through unchanged; anything else is taken to be a path on this machine and
+ * handed to the /api/local route. */
+function imageHref(src) {
+  const raw = String(src || '');
+  if (/^https?:\/\//i.test(raw)) return raw;
+  if (/^data:image\//i.test(raw)) return raw;
+  if (!raw) return '';
+  return `api/local?path=${encodeURIComponent(raw)}`;
+}
+
+// alt and src are attacker-controlled as far as this renderer knows; both are
+// escaped, and a javascript: URL never reaches here because imageHref() only
+// returns https, data:image/, or a route this server builds itself.
+function renderImage(image) {
+  if (!image) return '';
+  // escapeHtml already covers quotes, so it is a valid attribute escaper here.
+  const escapeAttr = escapeHtml;
+  const href = imageHref(image.src);
+  if (!href) return escapeHtml(image.alt || '');
+  return `<a class="md-image" href="${escapeAttr(href)}" target="_blank" rel="noopener noreferrer">`
+    + `<img src="${escapeAttr(href)}" alt="${escapeAttr(image.alt || '')}" loading="lazy" decoding="async">`
+    + `</a>`;
 }
 
 function renderInline(text) {

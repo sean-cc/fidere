@@ -2323,3 +2323,23 @@ body.sidebar-resizing .sidebar {
 @media (max-width: 720px) {
   .tool-image img { max-width: 220px; max-height: 160px; }
 }
+
+/* An image the agent put in its reply. block-level so it breaks the paragraph
+ * flow around it; max-width in % so a wide still never widens the transcript. */
+.md-image {
+  display: block;
+  margin: 10px 0;
+  border: 1px solid var(--border-light);
+  border-radius: 10px;
+  overflow: hidden;
+  line-height: 0;
+  background: var(--bg-code);
+  max-width: 100%;
+  transition: border-color 0.15s;
+}
+.md-image:hover { border-color: var(--border-primary); }
+.md-image img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
